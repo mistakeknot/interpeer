@@ -16,7 +16,17 @@ The Interpeer plugin provides a "second pair of eyes" by integrating OpenAI's Co
 
 ## Prerequisites
 
-This plugin requires the [OpenAI Codex CLI](https://github.com/openai/codex-cli) to be installed and configured:
+### 1. Claude Code
+
+This is a Claude Code plugin. You'll need:
+- [Claude Code](https://claude.com/code) installed and running
+- Access to the `/plugin` commands in Claude Code
+
+To verify plugin support is available, type `/plugin` in Claude Code - you should see available plugin commands.
+
+### 2. OpenAI Codex CLI
+
+Install and configure the [OpenAI Codex CLI](https://github.com/openai/codex-cli):
 
 ```bash
 # Install Codex CLI (example - check official docs for current method)
@@ -24,9 +34,14 @@ npm install -g @openai/codex-cli
 
 # Configure with your API key
 codex config set api-key YOUR_API_KEY
+
+# Verify installation
+codex --version
 ```
 
 ## Installation
+
+Once prerequisites are met, install the plugin:
 
 ```bash
 # Add the interagency marketplace (if not already added)
@@ -35,6 +50,8 @@ codex config set api-key YOUR_API_KEY
 # Install the interpeer plugin
 /plugin install interpeer
 ```
+
+After installation, Claude Code will automatically load the interpeer skill.
 
 ## Usage
 
