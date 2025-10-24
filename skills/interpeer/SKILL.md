@@ -34,16 +34,15 @@ Get expert technical feedback from OpenAI Codex CLI and collaboratively review i
 **The entire workflow in 30 seconds:**
 
 1. **Install**: Ensure [OpenAI Codex CLI](https://github.com/openai/codex-cli) is installed
-2. **Run**: `codex exec --sandbox read-only "Review FILE focusing on X, Y, Z. START NOW."`
+2. **Run**: `codex exec --sandbox read-only "Review FILE focusing on X, Y, Z. TIME BUDGET: 90s. START NOW."`
 3. **Discuss**: Present Codex's feedback to user, analyze together, make informed decisions
 
-**Time**: 1-3 minutes for most reviews
-**Timeout**: Optional safety feature - add if you have it, skip if you don't
+**Default time**: 90 seconds (configurable via "quick interpeer" = 60s, "deep interpeer" = 300s)
 **Key principle**: Codex is an expert consultant, not an authority. You and the user make final decisions.
 
 ## Quick Start
 
-**Simplest review (1-2 minutes):**
+**Simplest review (90 seconds):**
 
 ```bash
 codex exec --sandbox read-only "Review the file: path/to/file.md
@@ -55,51 +54,18 @@ Provide:
 - Top 3 concerns
 - Top 3 recommendations
 
-TIME BUDGET: 2 minutes maximum
+TIME BUDGET: 90 seconds maximum
 START RESPONSE NOW."
 ```
 
 **That's it!** Codex will:
 1. Read the file you specified
 2. Analyze it based on your focus areas
-3. Return structured feedback in ~1-2 minutes
+3. Return structured feedback in ~90 seconds
 
-The `TIME BUDGET` in the prompt is usually enough to keep reviews fast.
+The `TIME BUDGET` in the prompt keeps reviews fast by default.
 
-**Want extra safety?** Add a timeout command to force-kill if Codex runs too long:
-
-```bash
-# If you have 'timeout' installed (Linux, most systems):
-timeout 180 codex exec --sandbox read-only "..."
-
-# If you have 'gtimeout' installed (macOS with Homebrew coreutils):
-gtimeout 180 codex exec --sandbox read-only "..."
-```
-
-This is **optional** - skip it if you don't have timeout installed. See [Advanced: Installing Timeout](#installing-timeout) if you want to add this extra safety layer.
-
-### Note for Claude Code Agents
-
-When using this skill, auto-detect the timeout command once at the start:
-
-```bash
-# Detect timeout (run once per session)
-if command -v gtimeout >/dev/null 2>&1; then
-    TIMEOUT_CMD="gtimeout 180"
-elif command -v timeout >/dev/null 2>&1; then
-    TIMEOUT_CMD="timeout 180"
-else
-    TIMEOUT_CMD=""  # No timeout available, rely on TIME BUDGET in prompt
-fi
-```
-
-Then use `$TIMEOUT_CMD` in your commands:
-
-```bash
-$TIMEOUT_CMD codex exec --sandbox read-only "Review FILE..."
-```
-
-If `TIMEOUT_CMD` is empty, the command still works - you're just relying on the TIME BUDGET prompt constraint instead of a hard timeout.
+**Note for Claude Code:** When using this skill, use the Bash tool with `run_in_background: true` to launch Codex, then poll with BashOutput to automatically detect completion. See Phase 2 for details.
 
 ## Choosing Your Review Mode
 
@@ -185,14 +151,33 @@ Determine what needs review:
 - Quick validation where general feedback is fine
 - Running commands manually (just pick your own focus areas)
 
+### Phase 1.5: Detect Timeout Preference
+
+**Scan user request for timeout hints:**
+
+| Pattern | Timeout | Examples |
+|---------|---------|----------|
+| quick/fast/brief + interpeer/review | 60s | "quick interpeer", "fast review" |
+| (no modifier) | 90s | "interpeer", "get codex feedback" |
+| thorough/comprehensive/detailed | 180s | "thorough interpeer", "detailed review" |
+| deep/extensive | 300s | "deep interpeer", "extensive analysis" |
+| "N minute(s)" or "N second(s)" | Parse | "2 minute interpeer", "take 5 minutes" |
+
+**Store detected timeout for use in Phase 2.**
+
 ### Phase 2: Call Codex CLI
+
+**Step 1: Construct the command with detected timeout**
+
+Use timeout from Phase 1.5 (default: 90s if not detected).
 
 **Default: Single File Review**
 
 ```bash
-codex exec --sandbox read-only "Review the file: path/to/file.md
+# timeout_seconds determined from Phase 1.5
+prompt="Review the file: path/to/file.md
 
-TIME BUDGET: 2 minutes maximum
+TIME BUDGET: {timeout_seconds/60} minutes maximum
 OUTPUT REQUIRED: Start response immediately
 
 Focus on: [aspects from Phase 1 or user request]
@@ -216,12 +201,13 @@ START RESPONSE NOW."
 **Multi-File Review (2-5 files)**
 
 ```bash
-codex exec --sandbox read-only "Review these files:
+# Adjust timeout for multi-file: typically 180s or 300s
+prompt="Review these files:
 - path/to/file1.ts
 - path/to/file2.ts
 - path/to/file3.ts
 
-TIME BUDGET: 3 minutes maximum
+TIME BUDGET: {timeout_seconds/60} minutes maximum
 OUTPUT REQUIRED: Start response immediately
 
 Focus on: [aspects]
@@ -233,24 +219,42 @@ For each file, provide:
 START RESPONSE NOW."
 ```
 
+**Step 2: Launch in background**
+
+```bash
+# Use Bash tool with run_in_background: true
+codex exec --sandbox read-only "$prompt"
+```
+
+This returns a `bash_id` that identifies the running process.
+
+**Step 3: Poll for results**
+
+```
+start_time = current_time
+while (elapsed_time < timeout_seconds):
+  - Wait 10-15 seconds
+  - Call BashOutput(bash_id)
+  - User automatically sees any new output (Claude Code presents it)
+  - If process completed: break loop, proceed to Phase 3
+  - If no new activity: continue polling
+  - Update elapsed_time
+
+If timeout reached without completion:
+  - Call KillShell(bash_id) to terminate the process
+  - Call BashOutput(bash_id) one final time to retrieve partial results
+  - Present: "Codex timed out after {timeout_seconds}s. [Partial output]
+             Try 'quick interpeer' for faster feedback or 'deep interpeer' for more time."
+```
+
 **Common Patterns**
 
 | Review Type | Command Template |
 |------------|------------------|
-| **Security Review** | `codex exec --sandbox read-only "Review FILE for security. Check: input validation, auth, injection risks. TIME BUDGET: 2 min. START NOW."` |
-| **Performance Review** | `codex exec --sandbox read-only "Review FILE for performance. Check: bottlenecks, N+1 queries, memory usage. TIME BUDGET: 2 min. START NOW."` |
-| **Code Quality** | `codex exec --sandbox read-only "Review FILE for best practices. Check: maintainability, error handling, patterns. TIME BUDGET: 2 min. START NOW."` |
-| **Architecture** | `codex exec --sandbox read-only "Review FILE for architecture. Check: separation of concerns, coupling, scalability. TIME BUDGET: 2 min. START NOW."` |
-
-**With Timeout (Optional)**
-
-For extra safety, prefix commands with your detected `$TIMEOUT_CMD`:
-
-```bash
-$TIMEOUT_CMD codex exec --sandbox read-only "..."
-```
-
-This force-kills Codex after 3 minutes if it runs too long. Skip if you don't have timeout installed.
+| **Security Review** | `codex exec --sandbox read-only "Review FILE for security. Check: input validation, auth, injection risks. TIME BUDGET: 90s. START NOW."` |
+| **Performance Review** | `codex exec --sandbox read-only "Review FILE for performance. Check: bottlenecks, N+1 queries, memory usage. TIME BUDGET: 90s. START NOW."` |
+| **Code Quality** | `codex exec --sandbox read-only "Review FILE for best practices. Check: maintainability, error handling, patterns. TIME BUDGET: 90s. START NOW."` |
+| **Architecture** | `codex exec --sandbox read-only "Review FILE for architecture. Check: separation of concerns, coupling, scalability. TIME BUDGET: 90s. START NOW."` |
 
 ### Phase 3: Present Feedback to User
 
@@ -408,7 +412,7 @@ Review this technical approach:
 ## Questions
 [Specific questions for review]
 
-TIME BUDGET: 2 minutes
+TIME BUDGET: 90 seconds
 OUTPUT REQUIRED: Start immediately with trade-offs and recommendations
 START RESPONSE NOW.
 EOF
@@ -418,75 +422,50 @@ EOF
 
 For large reviews, use focused multiple calls rather than one comprehensive call:
 
-**Phase 1: Architecture Overview (2 min)**
+**Phase 1: Architecture Overview (90s)**
 ```bash
 codex exec --sandbox read-only "Quick architecture scan of:
 - src/main.rs
 - src/lib.rs
 - src/config.rs
 
-TIME BUDGET: 2 minutes
+TIME BUDGET: 90 seconds
 Provide: Top 3 architectural strengths, top 3 concerns
 START NOW."
 ```
 
-**Phase 2: Deep Dive on Concerns (3 min, only if Phase 1 found issues)**
+**Phase 2: Deep Dive on Concerns (180s, only if Phase 1 found issues)**
 ```bash
 codex exec --sandbox read-only "Deep dive on [specific concern from Phase 1].
 
 Focus on file: [file identified in Phase 1]
 
-TIME BUDGET: 3 minutes
+TIME BUDGET: 180 seconds
 Provide: Root cause, location, fix recommendation
 START NOW."
 ```
 
-### Installing Timeout
+### Monitoring for Long-Running Reviews
 
-**Linux/WSL:**
+**For Claude Code agents using background execution:**
+
+Automatic timeout handling is built into Phase 2. If Codex exceeds the timeout (60s/90s/180s/300s based on user request), Claude will:
+1. Call `KillShell(bash_id)` to terminate the process
+2. Retrieve partial results via `BashOutput(bash_id)`
+3. Present what was completed and suggest adjustments
+
+**Manual recovery if needed:**
 ```bash
-# Ubuntu/Debian
-sudo apt-get install coreutils
-
-# Already included in most distributions
-timeout --version  # Check if already installed
-```
-
-**macOS:**
-```bash
-# Install Homebrew if needed
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Install coreutils for gtimeout
-brew install coreutils
-
-# Verify
-gtimeout --version
-```
-
-**Windows:**
-- Use WSL (Windows Subsystem for Linux) and follow Linux instructions
-- Or use Git Bash with timeout binary
-- Or skip timeout (Codex will still work, just no time limit)
-
-### Monitoring for Analysis Loops
-
-**Signs Codex is stuck (rare with simple commands):**
-- No output after 2-3 minutes
-- Multiple "thinking" blocks without findings
-- Repeated file reads (if visible in stderr)
-
-**Recovery:**
-```bash
+# If manually running Codex and it seems stuck:
 # Kill the process
 pkill -f "codex exec"
 
 # Or Ctrl+C if running in foreground
 
-# Restart with narrower scope
+# Restart with narrower scope or shorter timeout
 codex exec --sandbox read-only "Quick review of FILE.
 Focus only on: [one specific aspect]
-TIME: 1 minute
+TIME: 60 seconds
 START NOW."
 ```
 
@@ -559,7 +538,7 @@ User: "Can you get Codex feedback on the auth handler?"
 You:
 1. codex exec --sandbox read-only "Review src/auth/handler.ts
    Focus: security, error handling
-   TIME BUDGET: 2 min
+   TIME BUDGET: 90s
    START NOW."
 2. Present feedback using template
 3. Discuss findings with user
@@ -604,7 +583,8 @@ You:
 - Organize feedback by priority/severity
 - Discuss trade-offs for each suggestion
 - Make final decisions collaboratively
-- Use timeout when available for safety
+- Use timeout hints: "quick interpeer" for fast feedback, "deep interpeer" for thorough analysis
+- Launch Codex in background (Claude Code) and poll for automatic completion
 
 **DON'T:**
 - Blindly implement all Codex suggestions without discussion
@@ -616,24 +596,29 @@ You:
 
 ## Quick Reference
 
+**Timeout patterns for users:**
+- "quick interpeer" → 60s
+- "interpeer" (default) → 90s
+- "thorough interpeer" → 180s
+- "deep interpeer" → 300s
+
+**Command templates:**
+
 ```bash
-# Standard file review
-codex exec --sandbox read-only "Review FILE focusing on ASPECTS. TIME: 2 min. START NOW."
+# Standard file review (90s default)
+codex exec --sandbox read-only "Review FILE focusing on ASPECTS. TIME: 90s. START NOW."
 
-# With timeout (optional - use $TIMEOUT_CMD from detection)
-$TIMEOUT_CMD codex exec --sandbox read-only "..."
-
-# Multi-file
-codex exec --sandbox read-only "Review files: FILE1, FILE2, FILE3 focusing on ASPECTS. TIME: 3 min. START NOW."
+# Multi-file (adjust timeout: 180s or 300s)
+codex exec --sandbox read-only "Review files: FILE1, FILE2, FILE3 focusing on ASPECTS. TIME: 180s. START NOW."
 
 # Security focused
-codex exec --sandbox read-only "Review FILE for security vulnerabilities. Check: injection, auth, validation. TIME: 2 min. START NOW."
+codex exec --sandbox read-only "Review FILE for security vulnerabilities. Check: injection, auth, validation. TIME: 90s. START NOW."
 
 # Performance focused
-codex exec --sandbox read-only "Review FILE for performance issues. Check: bottlenecks, memory, algorithms. TIME: 2 min. START NOW."
+codex exec --sandbox read-only "Review FILE for performance issues. Check: bottlenecks, memory, algorithms. TIME: 90s. START NOW."
 
 # Architecture focused
-codex exec --sandbox read-only "Review FILE for architecture. Check: coupling, patterns, scalability. TIME: 2 min. START NOW."
+codex exec --sandbox read-only "Review FILE for architecture. Check: coupling, patterns, scalability. TIME: 90s. START NOW."
 ```
 
 ## Remember
