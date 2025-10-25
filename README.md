@@ -88,6 +88,16 @@ Codex, Factory CLI droids, or any MCP-capable client can register this binary. S
 
 To customize agents/models, create `.taskmaster/interpeer.config.json` in your project (or set `INTERPEER_CONFIG_PATH`) and define additional adapters or override defaults. Environment variables always win if both are provided.
 
+You can also manage defaults from the command line:
+
+```bash
+# Show current defaults and available agents
+pnpm exec interpeer-agents list
+
+# Set default agent/model (writes to .taskmaster/interpeer.config.json)
+pnpm exec interpeer-agents set-default --agent claude_code --model claude-3-5-sonnet-20241022
+```
+
 ## Usage
 
 Once installed, Claude will automatically use the interpeer skill when appropriate. You can also explicitly request it:

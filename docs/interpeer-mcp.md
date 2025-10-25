@@ -244,6 +244,17 @@
 - `--default-agent <agent>`: set baseline agent when `target_agent` omitted (`claude_code`, `codex_cli`, `factory_droid`)
 - `--default-model <model>`: set baseline model for the default agent
 
+### Managing Defaults via CLI
+
+Use the helper command to inspect or update configuration without editing JSON by hand:
+
+```bash
+# From repo root
+pnpm exec interpeer-agents list
+
+pnpm exec interpeer-agents set-default --agent codex_cli --model gpt-5-codex
+```
+
 ## Environment Reference (`.env.example`)
 ```
 # General retry controls

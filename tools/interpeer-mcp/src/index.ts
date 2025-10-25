@@ -22,11 +22,11 @@ loadEnv();
 
 const MAX_CLI_BUFFER = 5 * 1024 * 1024;
 
-type TargetAgent = 'claude_code' | 'codex_cli' | 'factory_droid';
+type TargetAgent = string;
 type SettingSource = 'user' | 'project' | 'local';
 
 const DEFAULT_TARGET_AGENT: TargetAgent = 'claude_code';
-const VALID_TARGET_AGENTS: TargetAgent[] = ['claude_code', 'codex_cli', 'factory_droid'];
+const VALID_TARGET_AGENTS = ['claude_code', 'codex_cli', 'factory_droid'] as const;
 const DEFAULT_CLAUDE_MODEL = 'sonnet';
 const DEFAULT_CODEX_MODEL = 'gpt-5-codex';
 const DEFAULT_FACTORY_COMMAND = 'factory';
@@ -46,7 +46,7 @@ let runtimeConfig: InterpeerConfig | undefined;
 
 let defaultTargetAgent: TargetAgent = (() => {
   const envValue = process.env.INTERPEER_DEFAULT_AGENT?.trim();
-  if (envValue && VALID_TARGET_AGENTS.includes(envValue as TargetAgent)) {
+  if (envValue && VALID_TARGET_AGENTS.includes(envValue as (typeof VALID_TARGET_AGENTS)[number])) {
     return envValue as TargetAgent;
   }
   return DEFAULT_TARGET_AGENT;
@@ -248,6 +248,10 @@ interface InterpeerConfig {
     ttlMs: number;
     maxEntries: number;
   };
+  defaults?: {
+    agent: TargetAgent;
+    model?: string;
+  };
 }
 
 interface CachedEntry {
@@ -419,9 +423,7 @@ export const __testUtils = {
 };
 
 export function setDefaultAgentOverride(agent: TargetAgent) {
-  if (VALID_TARGET_AGENTS.includes(agent)) {
-    defaultTargetAgent = agent;
-  }
+  defaultTargetAgent = agent;
 }
 
 export function setDefaultModelOverride(model?: string) {
@@ -867,6 +869,14 @@ function loadConfig(projectRoot: string): InterpeerConfig {
 
   const claudeSettingSources = parseSettingSources(process.env.INTERPEER_CLAUDE_SETTING_SOURCES);
 
+  if (fileOverrides?.defaults?.agent) {
+    setDefaultAgentOverride(fileOverrides.defaults.agent as TargetAgent);
+  }
+
+  if (fileOverrides?.defaults && 'model' in fileOverrides.defaults) {
+    setDefaultModelOverride(fileOverrides.defaults.model as string | undefined);
+  }
+
   const config: InterpeerConfig = {
     agents: {
       claude: {
@@ -929,6 +939,10 @@ function loadConfig(projectRoot: string): InterpeerConfig {
         process.env.INTERPEER_CACHE_MAX_ENTRIES,
         DEFAULT_CACHE_MAX_ENTRIES
       )
+    },
+    defaults: {
+      agent: defaultTargetAgent,
+      model: defaultModelOverride
     }
   };
 
