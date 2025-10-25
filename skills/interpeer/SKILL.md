@@ -469,6 +469,69 @@ TIME: 60 seconds
 START NOW."
 ```
 
+## Reverse Second Opinion (Codex → Claude)
+
+Interpeer can also gather feedback from other agents using the `interpeer_review` MCP tool. Reach for this after sharing Codex’s results when the user asks “what would Claude say?” or when you want confirmation from another reviewer.
+
+**Offer this when:**
+- The user explicitly requests Claude’s take or mentions the reverse workflow.
+- You see a high-risk concern and want a second perspective before acting.
+- You’re presenting trade-offs and multiple opinions would help the decision.
+
+**Prerequisites:**
+- `tools/interpeer-mcp/dist/bin/interpeer-mcp.js` exists (`pnpm run build`) and is executable (`chmod +x`).
+- `INTERPEER_PROJECT_ROOT` is set for sessions launched outside the repo root.
+- Backend agents are configured; default `target_agent` is `claude_code`.
+
+**Claude Code usage:**
+```json
+{
+  "tool": "interpeer:interpeer_review",
+  "input": {
+    "content": "<summary or snippet>",
+    "focus": ["security", "maintainability"],
+    "review_type": "code",
+    "style": "structured",
+    "time_budget_seconds": 120,
+    "target_agent": "claude_code"
+  }
+}
+```
+- Reuse focus areas/time budget from Phase 1 or ask the user to adjust.
+- For alternative reviewers set `target_agent` to `codex_cli` or `factory_droid`.
+
+**Handling the response:**
+1. Wait for the MCP tool output (includes responding agent + usage).
+2. Present Claude’s findings in the same Strengths/Concerns/Recommendations structure.
+3. Compare with Codex’s assessment: highlight agreements, new insights, and conflicts.
+
+**Troubleshooting:**
+- If the tool fails, confirm the CLI exists (`which claude`, `which codex`, `which factory`).
+- Ensure `INTERPEER_PROJECT_ROOT` is exported in the MCP server environment.
+- Increase retry limits with env vars (e.g., `INTERPEER_CLAUDE_MAX_RETRIES=5`).
+
+**Discussion pattern:**
+```markdown
+## Claude’s Second Opinion (via interpeer)
+- Agent: Claude Code
+- Template: Code Review
+- Time Budget: 120s
+
+### Strengths
+...
+
+### Concerns
+...
+
+### Recommendations
+...
+
+Comparison with Codex:
+- Agreement: …
+- New insights: …
+- Conflicts: … (decide together)
+```
+
 ## Critical Review Principles
 
 ### 1. Codex as Expert Consultant, Not Authority
