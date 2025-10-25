@@ -68,6 +68,10 @@
           "default": "claude_code",
           "description": "Peer agent that should answer the request"
         },
+        "target_model": {
+          "type": "string",
+          "description": "Override the model identifier for the selected agent (e.g. claude-3-5-sonnet-20241022)"
+        },
         "resource_paths": {
           "type": "array",
           "items": { "type": "string" },
@@ -77,6 +81,8 @@
     }
   }
   ```
+
+`target_model` is optional—provide it when you want to pin a specific model version for the selected agent without touching global config.
 - **Response Shape**:
   ```json
   {
@@ -232,6 +238,12 @@
    - **Working Directory**: `/path/to/interpeer`
 2. Connect and call `interpeer_review` with different `target_agent` values to validate routing.
 
+### CLI Flags
+- `--project-root <path>`: override `INTERPEER_PROJECT_ROOT`
+- `--config <path>`: load a custom JSON config file
+- `--default-agent <agent>`: set baseline agent when `target_agent` omitted (`claude_code`, `codex_cli`, `factory_droid`)
+- `--default-model <model>`: set baseline model for the default agent
+
 ## Environment Reference (`.env.example`)
 ```
 # General retry controls
@@ -261,6 +273,10 @@ INTERPEER_FACTORY_FORMAT=markdown
 INTERPEER_FACTORY_EXTRA_ARGS=
 INTERPEER_FACTORY_MAX_RETRIES=3
 INTERPEER_FACTORY_RETRY_DELAY_MS=2000
+
+# Defaults
+INTERPEER_DEFAULT_AGENT=claude_code
+INTERPEER_DEFAULT_MODEL=
 
 # Caching
 INTERPEER_CACHE_ENABLED=true

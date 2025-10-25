@@ -75,11 +75,13 @@ pnpm run test
 pnpm pack
 ```
 
-The CLI can be launched manually:
+The CLI can be launched manually (use `--default-agent` / `--default-model` flags to set defaults):
 
 ```bash
 INTERPEER_PROJECT_ROOT=/path/to/interpeer \
-  node /path/to/interpeer/tools/interpeer-mcp/dist/bin/interpeer-mcp.js
+  node /path/to/interpeer/tools/interpeer-mcp/dist/bin/interpeer-mcp.js \
+  --default-agent codex_cli \
+  --default-model gpt-5-codex
 ```
 
 Codex, Factory CLI droids, or any MCP-capable client can register this binary. See [docs/interpeer-mcp.md](docs/interpeer-mcp.md) for detailed integration instructions (Codex CLI, Factory CLI, MCP Inspector), environment variables, caching, and troubleshooting.

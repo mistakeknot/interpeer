@@ -26,6 +26,7 @@ type TargetAgent = 'claude_code' | 'codex_cli' | 'factory_droid';
 type SettingSource = 'user' | 'project' | 'local';
 
 const DEFAULT_TARGET_AGENT: TargetAgent = 'claude_code';
+const VALID_TARGET_AGENTS: TargetAgent[] = ['claude_code', 'codex_cli', 'factory_droid'];
 const DEFAULT_CLAUDE_MODEL = 'sonnet';
 const DEFAULT_CODEX_MODEL = 'gpt-5-codex';
 const DEFAULT_FACTORY_COMMAND = 'factory';
@@ -42,6 +43,16 @@ let server: McpServer | undefined;
 let started = false;
 let projectRootPath = __dirname;
 let runtimeConfig: InterpeerConfig | undefined;
+
+let defaultTargetAgent: TargetAgent = (() => {
+  const envValue = process.env.INTERPEER_DEFAULT_AGENT?.trim();
+  if (envValue && VALID_TARGET_AGENTS.includes(envValue as TargetAgent)) {
+    return envValue as TargetAgent;
+  }
+  return DEFAULT_TARGET_AGENT;
+})();
+
+let defaultModelOverride: string | undefined = process.env.INTERPEER_DEFAULT_MODEL?.trim() || undefined;
 
 let claudeCliChecked = false;
 let codexCliChecked = false;
@@ -83,6 +94,10 @@ const reviewInputSchema = z.object({
     .enum(['claude_code', 'codex_cli', 'factory_droid'])
     .optional()
     .describe('Target agent that should produce the second opinion (defaults to Claude Code)'),
+  target_model: z
+    .string()
+    .optional()
+    .describe('Override the model identifier for the selected agent'),
   resource_paths: z
     .array(z.string().min(1))
     .optional()
@@ -392,18 +407,38 @@ export const __testUtils = {
     runtimeConfig = undefined;
     resultCache.clear();
   },
+  setDefaultAgent(agent: TargetAgent) {
+    setDefaultAgentOverride(agent);
+  },
+  setDefaultModel(model?: string) {
+    setDefaultModelOverride(model);
+  },
   clearCache() {
     resultCache.clear();
   }
 };
 
+export function setDefaultAgentOverride(agent: TargetAgent) {
+  if (VALID_TARGET_AGENTS.includes(agent)) {
+    defaultTargetAgent = agent;
+  }
+}
+
+export function setDefaultModelOverride(model?: string) {
+  defaultModelOverride = model?.trim() || undefined;
+}
+
 async function routeReview(input: ReviewInput): Promise<AgentReviewResult> {
   const config = ensureConfig();
-  const agent = input.target_agent ?? DEFAULT_TARGET_AGENT;
+  const agent = input.target_agent ?? defaultTargetAgent;
   const prepared = await prepareInput(input);
 
+  const explicitModel = prepared.target_model?.trim();
+  const defaultModelForAgent = !input.target_agent ? defaultModelOverride : undefined;
+  const modelOverride = explicitModel ?? defaultModelForAgent;
+
   const cacheEnabled = config.cache.enabled;
-  const cacheKey = buildCacheKey(prepared, agent);
+  const cacheKey = buildCacheKey(prepared, agent, modelOverride);
 
   if (cacheEnabled) {
     const cached = getCacheEntry(cacheKey, config.cache.ttlMs);
@@ -416,13 +451,13 @@ async function routeReview(input: ReviewInput): Promise<AgentReviewResult> {
   let result: AgentReviewResult;
   switch (agent) {
     case 'claude_code':
-      result = await runClaudeCodeReview(prepared, config.agents.claude);
+      result = await runClaudeCodeReview(prepared, config.agents.claude, modelOverride);
       break;
     case 'codex_cli':
-      result = await runCodexReview(prepared, config.agents.codex);
+      result = await runCodexReview(prepared, config.agents.codex, modelOverride);
       break;
     case 'factory_droid':
-      result = await runFactoryReview(prepared, config.agents.factory);
+      result = await runFactoryReview(prepared, config.agents.factory, modelOverride);
       break;
     default:
       throw new Error(`Unsupported target agent: ${agent}`);
@@ -441,9 +476,11 @@ async function routeReview(input: ReviewInput): Promise<AgentReviewResult> {
 
 async function runClaudeCodeReview(
   input: ReviewInput,
-  config: ClaudeAgentConfig
+  config: ClaudeAgentConfig,
+  modelOverride?: string
 ): Promise<AgentReviewResult> {
   ensureClaudeCliAvailable(config.command);
+  const modelId = modelOverride ?? config.model;
 
   const settings: ClaudeCodeSettings = {
     cwd: projectRootPath
@@ -462,7 +499,7 @@ async function runClaudeCodeReview(
   const result = await withRetries(
     async () =>
       generateText({
-        model: claudeCode(config.model, settings),
+        model: claudeCode(modelId, settings),
         system,
         messages: [
           {
@@ -485,7 +522,7 @@ async function runClaudeCodeReview(
 
   return {
     agent: 'claude_code',
-    model: config.model,
+    model: modelId,
     text: result.text.trim() || 'Claude Code returned an empty response.',
     usage
   };
@@ -493,10 +530,12 @@ async function runClaudeCodeReview(
 
 async function runCodexReview(
   input: ReviewInput,
-  config: CodexAgentConfig
+  config: CodexAgentConfig,
+  modelOverride?: string
 ): Promise<AgentReviewResult> {
   ensureCodexCliAvailable(config.command);
 
+  const modelId = modelOverride ?? config.model;
   const settings: CodexCliSettings = {
     cwd: projectRootPath,
     profile: config.profile,
@@ -508,7 +547,7 @@ async function runCodexReview(
   const result = await withRetries(
     async () =>
       generateText({
-        model: codexCli(config.model, settings),
+        model: codexCli(modelId, settings),
         system,
         messages: [
           {
@@ -531,7 +570,7 @@ async function runCodexReview(
 
   return {
     agent: 'codex_cli',
-    model: config.model,
+    model: modelId,
     text: result.text.trim() || 'Codex CLI returned an empty response.',
     usage
   };
@@ -539,7 +578,8 @@ async function runCodexReview(
 
 async function runFactoryReview(
   input: ReviewInput,
-  config: FactoryAgentConfig
+  config: FactoryAgentConfig,
+  modelOverride?: string
 ): Promise<AgentReviewResult> {
   ensureFactoryCliAvailable(config.command);
 
@@ -555,7 +595,7 @@ async function runFactoryReview(
 
   return {
     agent: 'factory_droid',
-    model: config.model,
+    model: modelOverride ?? config.model,
     text: text || 'Factory CLI returned an empty response.'
   };
 }
@@ -720,14 +760,15 @@ async function prepareInput(input: ReviewInput): Promise<ReviewInput> {
   };
 }
 
-function buildCacheKey(input: ReviewInput, agent: TargetAgent): string {
+function buildCacheKey(input: ReviewInput, agent: TargetAgent, modelOverride?: string): string {
   return JSON.stringify({
     agent,
     content: input.content,
     focus: input.focus ?? [],
     style: input.style ?? 'structured',
     review_type: input.review_type ?? 'general',
-    time_budget_seconds: input.time_budget_seconds ?? null
+    time_budget_seconds: input.time_budget_seconds ?? null,
+    target_model: modelOverride ?? input.target_model ?? null
   });
 }
 

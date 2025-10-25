@@ -107,7 +107,8 @@ describe('interpeer-mcp internals', () => {
         focus: ['testing'],
         style: 'structured'
       },
-      'claude_code'
+      'claude_code',
+      'custom-model'
     );
 
     expect(__testUtils.getCacheEntry(key, 1000)).toBeNull();
@@ -128,5 +129,27 @@ describe('interpeer-mcp internals', () => {
 
     const expired = __testUtils.getCacheEntry(key, -1);
     expect(expired).toBeNull();
+  });
+
+  it('includes model override in cache key derivation', () => {
+    const base = __testUtils.buildCacheKey(
+      {
+        content: 'test',
+        style: 'structured'
+      },
+      'claude_code'
+    );
+
+    const overridden = __testUtils.buildCacheKey(
+      {
+        content: 'test',
+        style: 'structured',
+        target_model: 'sonnet'
+      },
+      'claude_code',
+      'sonnet'
+    );
+
+    expect(base).not.toEqual(overridden);
   });
 });
