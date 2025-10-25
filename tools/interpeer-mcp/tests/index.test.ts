@@ -71,6 +71,35 @@ describe('interpeer-mcp internals', () => {
     expect(config.cache.maxEntries).toBe(5);
   });
 
+  it('merges JSON config overrides and supports custom agents', async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'interpeer-config-'));
+    const configPath = join(tempDir, 'interpeer.config.json');
+
+    await fs.writeFile(
+      configPath,
+      JSON.stringify(
+        {
+          agents: {
+            claude: { model: 'haiku' },
+            openrouter: { command: 'or', model: 'anthropic/claude-3.5-sonnet' }
+          },
+          cache: { enabled: false, ttlMs: 1000, maxEntries: 2 }
+        },
+        null,
+        2
+      )
+    );
+
+    process.env.INTERPEER_CONFIG_PATH = configPath;
+
+    const config = __testUtils.loadConfig(tempDir);
+    expect(config.agents.claude.model).toBe('haiku');
+    expect(config.cache.enabled).toBe(false);
+    expect(config.cache.ttlMs).toBe(1000);
+    expect(config.cache.maxEntries).toBe(2);
+    expect(config.agents.openrouter).toBeDefined();
+  });
+
   it('stores and retrieves cached entries with TTL enforcement', () => {
     const key = __testUtils.buildCacheKey(
       {

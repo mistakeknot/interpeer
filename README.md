@@ -84,6 +84,8 @@ INTERPEER_PROJECT_ROOT=/path/to/interpeer \
 
 Codex, Factory CLI droids, or any MCP-capable client can register this binary. See [docs/interpeer-mcp.md](docs/interpeer-mcp.md) for detailed integration instructions (Codex CLI, Factory CLI, MCP Inspector), environment variables, caching, and troubleshooting.
 
+To customize agents/models, create `.taskmaster/interpeer.config.json` in your project (or set `INTERPEER_CONFIG_PATH`) and define additional adapters or override defaults. Environment variables always win if both are provided.
+
 ## Usage
 
 Once installed, Claude will automatically use the interpeer skill when appropriate. You can also explicitly request it:

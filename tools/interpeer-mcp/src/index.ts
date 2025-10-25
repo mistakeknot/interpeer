@@ -1,5 +1,6 @@
 import { execFile, spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
+import { readFileSync, accessSync, constants } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -792,6 +793,21 @@ function ensureConfig(): InterpeerConfig {
 }
 
 function loadConfig(projectRoot: string): InterpeerConfig {
+  const configPath = process.env.INTERPEER_CONFIG_PATH?.trim() || '.taskmaster/interpeer.config.json';
+  let fileOverrides: Partial<InterpeerConfig> | null = null;
+
+  const fullConfigPath = resolve(projectRoot, configPath);
+  try {
+    accessSync(fullConfigPath, constants.F_OK);
+    const fileContents = readFileSync(fullConfigPath, 'utf8');
+    fileOverrides = JSON.parse(fileContents) as Partial<InterpeerConfig>;
+  } catch (error) {
+    if (process.env.INTERPEER_CONFIG_PATH) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`Failed to load interpeer config file at ${fullConfigPath}: ${message}`);
+    }
+  }
+
   const parseIntEnv = (value: string | undefined, fallback: number) => {
     if (!value) return fallback;
     const parsed = Number.parseInt(value, 10);
@@ -810,7 +826,7 @@ function loadConfig(projectRoot: string): InterpeerConfig {
 
   const claudeSettingSources = parseSettingSources(process.env.INTERPEER_CLAUDE_SETTING_SOURCES);
 
-  return {
+  const config: InterpeerConfig = {
     agents: {
       claude: {
         model: process.env.INTERPEER_CLAUDE_MODEL?.trim() || DEFAULT_CLAUDE_MODEL,
@@ -874,6 +890,69 @@ function loadConfig(projectRoot: string): InterpeerConfig {
       )
     }
   };
+
+  if (fileOverrides) {
+    if (fileOverrides.agents?.claude) {
+      config.agents.claude = {
+        ...config.agents.claude,
+        ...fileOverrides.agents.claude,
+        retry: {
+          ...config.agents.claude.retry,
+          ...fileOverrides.agents.claude.retry
+        }
+      };
+    }
+
+    if (fileOverrides.agents?.codex) {
+      config.agents.codex = {
+        ...config.agents.codex,
+        ...fileOverrides.agents.codex,
+        retry: {
+          ...config.agents.codex.retry,
+          ...fileOverrides.agents.codex.retry
+        }
+      };
+    }
+
+    if (fileOverrides.agents?.factory) {
+      config.agents.factory = {
+        ...config.agents.factory,
+        ...fileOverrides.agents.factory,
+        retry: {
+          ...config.agents.factory.retry,
+          ...fileOverrides.agents.factory.retry
+        }
+      };
+    }
+
+    if (fileOverrides.agents) {
+      const customEntries = Object.entries(fileOverrides.agents).filter(
+        ([key]) => !['claude', 'codex', 'factory'].includes(key)
+      );
+
+      for (const [id, adapter] of customEntries) {
+        if (adapter && typeof adapter === 'object') {
+          config.agents[id as keyof typeof config.agents] = adapter as never;
+        }
+      }
+    }
+
+    if (fileOverrides.logging) {
+      config.logging = {
+        ...config.logging,
+        ...fileOverrides.logging
+      };
+    }
+
+    if (fileOverrides.cache) {
+      config.cache = {
+        ...config.cache,
+        ...fileOverrides.cache
+      };
+    }
+  }
+
+  return config;
 }
 
 async function withRetries<T>(
