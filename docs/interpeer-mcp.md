@@ -165,6 +165,102 @@
 4. Document the workflow in this repository (SKILL.md, README).
 5. Dogfood: run Codex CLI session, call `interpeer_review`, iterate on prompt quality.
 
+## Client Integration Examples
+
+### Codex CLI
+1. Ensure the packaged CLI is available and executable:
+   ```bash
+   cd /path/to/interpeer/tools/interpeer-mcp
+   pnpm run build
+   chmod +x dist/bin/interpeer-mcp.js
+   ```
+2. Add the server to Codex CLI’s configuration (preview syntax):
+   ```jsonc
+   {
+     "mcp_servers": [
+       {
+         "name": "interpeer",
+         "command": "/usr/local/bin/node",
+         "args": [
+           "/path/to/interpeer/tools/interpeer-mcp/dist/bin/interpeer-mcp.js"
+         ],
+         "env": {
+           "INTERPEER_PROJECT_ROOT": "/path/to/interpeer"
+         }
+       }
+     ]
+   }
+   ```
+3. Invoke the tool:
+   ```bash
+   codex mcp exec interpeer interpeer_review '{
+     "content": "function add(a, b) { return a + b; }",
+     "focus": ["correctness", "testing"],
+     "review_type": "code",
+     "target_agent": "codex_cli",
+     "style": "structured"
+   }'
+   ```
+
+### Factory CLI (Droid)
+1. Register the server:
+   ```bash
+   /mcp add interpeer "node /path/to/interpeer/tools/interpeer-mcp/dist/bin/interpeer-mcp.js" \
+     -e INTERPEER_PROJECT_ROOT=/path/to/interpeer
+   ```
+2. Ask a droid to request a second opinion:
+   ```bash
+   /ask "Use interpeer:interpeer_review on docs/design.md with focus=['architecture'] target_agent='factory_droid'"
+   ```
+
+### MCP Inspector (Manual Testing)
+1. Launch Inspector with stdio transport:
+   - **Command**: `node`
+   - **Arguments**: `/path/to/interpeer/tools/interpeer-mcp/dist/bin/interpeer-mcp.js`
+   - **Working Directory**: `/path/to/interpeer`
+2. Connect and call `interpeer_review` with different `target_agent` values to validate routing.
+
+## Environment Reference (`.env.example`)
+```
+# General retry controls
+INTERPEER_MAX_RETRIES=3
+INTERPEER_RETRY_DELAY_MS=2000
+
+# Claude Code
+INTERPEER_CLAUDE_MODEL=sonnet
+INTERPEER_CLAUDE_COMMAND=claude
+INTERPEER_CLAUDE_SETTING_SOURCES=user,project
+INTERPEER_CLAUDE_CUSTOM_SYSTEM_PROMPT=
+INTERPEER_CLAUDE_MAX_RETRIES=3
+INTERPEER_CLAUDE_RETRY_DELAY_MS=2000
+
+# Codex CLI
+INTERPEER_CODEX_MODEL=gpt-5-codex
+INTERPEER_CODEX_COMMAND=codex
+INTERPEER_CODEX_PROFILE=
+INTERPEER_CODEX_VERBOSE=false
+INTERPEER_CODEX_MAX_RETRIES=3
+INTERPEER_CODEX_RETRY_DELAY_MS=2000
+
+# Factory CLI
+INTERPEER_FACTORY_COMMAND=factory
+INTERPEER_FACTORY_MODEL=factory-droid
+INTERPEER_FACTORY_FORMAT=markdown
+INTERPEER_FACTORY_EXTRA_ARGS=
+INTERPEER_FACTORY_MAX_RETRIES=3
+INTERPEER_FACTORY_RETRY_DELAY_MS=2000
+
+# Logging
+INTERPEER_LOGGING_ENABLED=true
+INTERPEER_LOGGING_REDACT_CONTENT=true
+```
+
+## Troubleshooting
+- **CLI not found**: ensure `INTERPEER_CLAUDE_COMMAND`, `INTERPEER_CODEX_COMMAND`, or `INTERPEER_FACTORY_COMMAND` point to installed binaries.
+- **Permission denied**: run `chmod +x dist/bin/interpeer-mcp.js` after building.
+- **Incorrect working directory**: set `INTERPEER_PROJECT_ROOT` so adapters can locate project files.
+- **No response**: increase retry limits (`INTERPEER_*_MAX_RETRIES`) or inspect `sendLoggingMessage` output from the MCP client.
+
 ## Reference: Task Master MCP Patterns Worth Reusing
 - **FastMCP scaffolding**: Task Master (`mcp-server/src/index.js`) wraps `FastMCP` with stdio transport, connect handlers, and 2-minute timeouts. We can copy this shape for quick bootstrapping instead of hand-rolling the server.
 - **Session-aware provider**: Their `MCPProvider` stores the active session and validates `clientCapabilities.sampling` before handling calls—useful guard rails for our Claude bridge.

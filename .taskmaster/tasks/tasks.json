@@ -407,14 +407,66 @@
         "id": "8",
         "title": "Create MCP client integration documentation",
         "description": "Document how to register and use the Claude MCP bridge with various MCP clients",
-        "details": "Create documentation for integrating the MCP server with Codex CLI and other MCP-capable clients. Include configuration examples for different client types (stdio, WebSocket). Document the tool schema, usage patterns, and example invocations. Add troubleshooting guide for common integration issues and client capability requirements.",
-        "testStrategy": "Validate documentation by following integration steps with a test MCP client. Verify configuration examples work correctly and tool invocations succeed. Test documentation completeness with a fresh environment setup.",
-        "priority": "low",
+        "status": "done",
         "dependencies": [
           "7"
         ],
-        "status": "pending",
-        "subtasks": []
+        "priority": "low",
+        "details": "Successfully documented comprehensive client integration examples in docs/interpeer-mcp.md including configuration for Codex CLI, Factory CLI (Droid), and MCP Inspector. Added detailed integration steps with proper JSON configuration examples for each client type, working directory setup, and environment variable configuration. Documented the .env reference file with all available configuration options including retry controls, client-specific settings, and logging preferences. Added troubleshooting section covering common issues like CLI not found, permission denied, incorrect working directories, and connection problems. Documentation includes complete tool schema, usage patterns, example invocations, and validates against the implemented MCP server architecture.",
+        "testStrategy": "Validate documentation completeness by testing each client integration example: follow Codex CLI configuration steps to register MCP server and invoke interpeer_review tool, validate Factory CLI registration and invocation patterns, test MCP Inspector manual testing procedures with different target_agent values. Verify all configuration examples match the implemented tool schema in tools/interpeer-mcp/src/index.ts. Test troubleshooting guidance by recreating common error scenarios and confirming suggested solutions resolve issues. Validate .env reference by comparing against actual environment variables used in the implementation.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Document Codex CLI integration configuration",
+            "description": "Create detailed configuration example for Codex CLI MCP server registration",
+            "dependencies": [],
+            "details": "Documented Codex CLI integration with complete JSON configuration example including command path, arguments array pointing to dist/bin/interpeer-mcp.js, and environment variables setup. Added step-by-step build instructions and example tool invocation with proper JSON payload structure.",
+            "status": "done",
+            "testStrategy": "Test by following documented steps to register MCP server with Codex CLI and verify successful tool invocation",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Document Factory CLI (Droid) integration",
+            "description": "Create Factory CLI configuration and usage examples",
+            "dependencies": [],
+            "details": "Documented Factory CLI integration with /mcp add command syntax, environment variable configuration, and example usage pattern for requesting second opinions through droid interface. Included proper argument formatting and target_agent specification.",
+            "status": "done",
+            "testStrategy": "Validate Factory CLI registration command and verify droid can successfully invoke interpeer_review tool",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Document MCP Inspector testing procedures",
+            "description": "Create manual testing documentation using MCP Inspector",
+            "dependencies": [],
+            "details": "Documented MCP Inspector setup for manual testing including stdio transport configuration, command and arguments specification, working directory setup, and validation procedures for different target_agent routing scenarios.",
+            "status": "done",
+            "testStrategy": "Test Inspector configuration steps and verify tool schema validation and routing works correctly",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Create comprehensive .env reference file",
+            "description": "Document all available environment variables and configuration options",
+            "dependencies": [],
+            "details": "Created complete .env.example reference documenting all configuration options including general retry controls, Claude Code specific settings, Codex CLI configuration, Factory CLI options, and logging preferences. Each variable includes descriptions and default values where applicable.",
+            "status": "done",
+            "testStrategy": "Validate .env reference against actual environment variables used in implementation code",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Add troubleshooting guide for common integration issues",
+            "description": "Document solutions for typical problems encountered during client integration",
+            "dependencies": [],
+            "details": "Added comprehensive troubleshooting section covering CLI not found errors (command path configuration), permission denied issues (chmod +x instructions), incorrect working directory problems (INTERPEER_PROJECT_ROOT setting), and no response scenarios (retry limit adjustments and logging inspection).",
+            "status": "done",
+            "testStrategy": "Test troubleshooting scenarios by recreating common error conditions and verifying documented solutions resolve issues",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2025-10-25T03:57:35.350Z"
       },
       {
         "id": "9",
@@ -517,9 +569,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-10-25T03:53:47.025Z",
+      "lastModified": "2025-10-25T03:57:35.351Z",
       "taskCount": 10,
-      "completedCount": 7,
+      "completedCount": 8,
       "tags": [
         "master"
       ]
