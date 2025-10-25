@@ -51,7 +51,14 @@
         },
         "review_type": {
           "type": "string",
-          "enum": ["general", "code", "design", "architecture"],
+          "enum": [
+            "general",
+            "code",
+            "design",
+            "architecture",
+            "security_audit",
+            "brainstorm_alternatives"
+          ],
           "default": "general",
           "description": "Template that tailors the guidance to match the artifact"
         },
@@ -60,6 +67,11 @@
           "enum": ["claude_code", "codex_cli", "factory_droid"],
           "default": "claude_code",
           "description": "Peer agent that should answer the request"
+        },
+        "resource_paths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional list of project-relative file paths whose contents should be appended before review"
         }
       }
     }
@@ -249,6 +261,11 @@ INTERPEER_FACTORY_FORMAT=markdown
 INTERPEER_FACTORY_EXTRA_ARGS=
 INTERPEER_FACTORY_MAX_RETRIES=3
 INTERPEER_FACTORY_RETRY_DELAY_MS=2000
+
+# Caching
+INTERPEER_CACHE_ENABLED=true
+INTERPEER_CACHE_TTL_MS=300000
+INTERPEER_CACHE_MAX_ENTRIES=50
 
 # Logging
 INTERPEER_LOGGING_ENABLED=true

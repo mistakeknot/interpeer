@@ -32,6 +32,8 @@ const DEFAULT_FACTORY_MODEL = 'factory-droid';
 const SEND_USAGE_METADATA = true;
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_RETRY_DELAY_MS = 2000;
+const DEFAULT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const DEFAULT_CACHE_MAX_ENTRIES = 50;
 
 const ALLOWED_SETTING_SOURCES = new Set<SettingSource>(['user', 'project', 'local']);
 
@@ -43,6 +45,7 @@ let runtimeConfig: InterpeerConfig | undefined;
 let claudeCliChecked = false;
 let codexCliChecked = false;
 let factoryCliChecked = false;
+const resultCache = new Map<string, CachedEntry>();
 
 const reviewInputSchema = z.object({
   content: z
@@ -65,13 +68,24 @@ const reviewInputSchema = z.object({
     .optional()
     .describe('Optional time budget hint for downstream agents (currently informational only)'),
   review_type: z
-    .enum(['general', 'code', 'design', 'architecture'])
+    .enum([
+      'general',
+      'code',
+      'design',
+      'architecture',
+      'security_audit',
+      'brainstorm_alternatives'
+    ])
     .optional()
     .describe('Template to apply (general default). Picks tailored guidance for the target agent.'),
   target_agent: z
     .enum(['claude_code', 'codex_cli', 'factory_droid'])
     .optional()
-    .describe('Target agent that should produce the second opinion (defaults to Claude Code)')
+    .describe('Target agent that should produce the second opinion (defaults to Claude Code)'),
+  resource_paths: z
+    .array(z.string().min(1))
+    .optional()
+    .describe('Optional list of file paths (relative to project root) to include in the review content')
 });
 
 type ReviewInput = z.infer<typeof reviewInputSchema>;
@@ -85,9 +99,16 @@ interface AgentReviewResult {
     output_tokens?: number;
     total_tokens?: number;
   };
+  cacheStatus?: 'hit' | 'miss';
 }
 
-type ReviewTemplateId = 'general' | 'code' | 'design' | 'architecture';
+type ReviewTemplateId =
+  | 'general'
+  | 'code'
+  | 'design'
+  | 'architecture'
+  | 'security_audit'
+  | 'brainstorm_alternatives';
 
 interface ReviewTemplate {
   id: ReviewTemplateId;
@@ -140,6 +161,28 @@ const REVIEW_TEMPLATES: Record<ReviewTemplateId, ReviewTemplate> = {
       'Consider scalability, observability, and operational readiness.',
       'Recommend patterns, tooling, or documentation that would strengthen the architecture.'
     ]
+  },
+  security_audit: {
+    id: 'security_audit',
+    title: 'Security Audit',
+    description:
+      'Inspect the artifact for vulnerabilities, insecure defaults, and missing hardening steps.',
+    guidance: [
+      'Highlight authentication, authorization, and input validation gaps.',
+      'Check secrets handling, logging of sensitive data, and dependency risk.',
+      'Recommend mitigations such as sanitization, rate limiting, or policy enforcement.'
+    ]
+  },
+  brainstorm_alternatives: {
+    id: 'brainstorm_alternatives',
+    title: 'Brainstorm Alternatives',
+    description:
+      'Generate alternative approaches, trade-offs, and creative options for the problem at hand.',
+    guidance: [
+      'List at least two viable alternatives with pros and cons.',
+      'Identify experiments or spikes that would de-risk the decision.',
+      'Call out assumptions and suggest questions that should be answered next.'
+    ]
   }
 };
 
@@ -184,6 +227,16 @@ interface InterpeerConfig {
     factory: FactoryAgentConfig;
   };
   logging: LoggingConfig;
+  cache: {
+    enabled: boolean;
+    ttlMs: number;
+    maxEntries: number;
+  };
+}
+
+interface CachedEntry {
+  timestamp: number;
+  agent: AgentReviewResult;
 }
 
 async function loadPackageVersion(): Promise<string> {
@@ -224,7 +277,8 @@ function ensureServerInstance(version: string): McpServer {
             data: {
               agent: result.agent,
               model: result.model,
-              usage: result.usage
+              usage: result.usage,
+              cache: result.cacheStatus
             }
           });
 
@@ -236,12 +290,19 @@ function ensureServerInstance(version: string): McpServer {
               _meta: {
                 agent: result.agent,
                 model: result.model,
-                usage: result.usage
+                usage: result.usage,
+                cache: result.cacheStatus
               }
             };
           }
 
-          return { content: outputContent };
+          return {
+            content: outputContent,
+            _meta: {
+              agent: result.agent,
+              cache: result.cacheStatus
+            }
+          };
         } catch (error) {
           const message =
             error instanceof Error ? error.message : 'Unknown error invoking peer review agent';
@@ -320,17 +381,43 @@ export default bootstrapServer;
 async function routeReview(input: ReviewInput): Promise<AgentReviewResult> {
   const config = ensureConfig();
   const agent = input.target_agent ?? DEFAULT_TARGET_AGENT;
+  const prepared = await prepareInput(input);
 
+  const cacheEnabled = config.cache.enabled;
+  const cacheKey = buildCacheKey(prepared, agent);
+
+  if (cacheEnabled) {
+    const cached = getCacheEntry(cacheKey, config.cache.ttlMs);
+    if (cached) {
+      await logReviewMetrics(agent, cached.agent.model, 'hit', cached.agent.usage);
+      return { ...cached.agent, cacheStatus: 'hit' };
+    }
+  }
+
+  let result: AgentReviewResult;
   switch (agent) {
     case 'claude_code':
-      return runClaudeCodeReview(input, config.agents.claude);
+      result = await runClaudeCodeReview(prepared, config.agents.claude);
+      break;
     case 'codex_cli':
-      return runCodexReview(input, config.agents.codex);
+      result = await runCodexReview(prepared, config.agents.codex);
+      break;
     case 'factory_droid':
-      return runFactoryReview(input, config.agents.factory);
+      result = await runFactoryReview(prepared, config.agents.factory);
+      break;
     default:
       throw new Error(`Unsupported target agent: ${agent}`);
   }
+
+  result.cacheStatus = 'miss';
+
+  if (cacheEnabled) {
+    storeCacheEntry(cacheKey, result, config.cache.maxEntries);
+  }
+
+  await logReviewMetrics(agent, result.model, result.cacheStatus, result.usage);
+
+  return result;
 }
 
 async function runClaudeCodeReview(
@@ -587,6 +674,98 @@ function buildCrossAgentPrompt(input: ReviewInput): string {
   ].join('\n');
 }
 
+async function prepareInput(input: ReviewInput): Promise<ReviewInput> {
+  if (!input.resource_paths || input.resource_paths.length === 0) {
+    return input;
+  }
+
+  const resourceSections: string[] = [];
+  for (const relativePath of input.resource_paths) {
+    const fullPath = resolve(projectRootPath, relativePath);
+    try {
+      const data = await readFile(fullPath, 'utf8');
+      resourceSections.push(
+        [`# File: ${relativePath}`, '```', data, '```'].join('\n')
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to read resource '${relativePath}': ${message}`);
+    }
+  }
+
+  const combinedContent = [input.content, ...resourceSections].filter(Boolean).join('\n\n');
+
+  return {
+    ...input,
+    content: combinedContent
+  };
+}
+
+function buildCacheKey(input: ReviewInput, agent: TargetAgent): string {
+  return JSON.stringify({
+    agent,
+    content: input.content,
+    focus: input.focus ?? [],
+    style: input.style ?? 'structured',
+    review_type: input.review_type ?? 'general',
+    time_budget_seconds: input.time_budget_seconds ?? null
+  });
+}
+
+function getCacheEntry(key: string, ttlMs: number): CachedEntry | null {
+  const entry = resultCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > ttlMs) {
+    resultCache.delete(key);
+    return null;
+  }
+  return {
+    timestamp: entry.timestamp,
+    agent: { ...entry.agent }
+  };
+}
+
+function storeCacheEntry(key: string, result: AgentReviewResult, maxEntries: number): void {
+  const storedAgent: AgentReviewResult = { ...result, cacheStatus: undefined };
+  resultCache.set(key, { timestamp: Date.now(), agent: storedAgent });
+
+  while (resultCache.size > maxEntries) {
+    const oldestKey = resultCache.keys().next().value;
+    if (!oldestKey) break;
+    resultCache.delete(oldestKey);
+  }
+}
+
+async function logReviewMetrics(
+  agent: TargetAgent,
+  model: string,
+  cacheStatus: 'hit' | 'miss',
+  usage?: AgentReviewResult['usage']
+): Promise<void> {
+  const config = ensureConfig();
+  if (!config.logging.enabled) return;
+
+  const data: Record<string, unknown> = {
+    agent,
+    model,
+    cache: cacheStatus
+  };
+
+  if (usage && !config.logging.redactContent) {
+    data.usage = {
+      input_tokens: usage.input_tokens,
+      output_tokens: usage.output_tokens,
+      total_tokens: usage.total_tokens
+    };
+  }
+
+  await server?.sendLoggingMessage({
+    level: 'info',
+    message: 'interpeer.review.metrics',
+    data
+  });
+}
+
 function ensureConfig(): InterpeerConfig {
   if (!runtimeConfig) {
     runtimeConfig = loadConfig(projectRootPath);
@@ -667,6 +846,14 @@ function loadConfig(projectRoot: string): InterpeerConfig {
     logging: {
       enabled: parseBool(process.env.INTERPEER_LOGGING_ENABLED, true),
       redactContent: parseBool(process.env.INTERPEER_LOGGING_REDACT_CONTENT, true)
+    },
+    cache: {
+      enabled: parseBool(process.env.INTERPEER_CACHE_ENABLED, true),
+      ttlMs: parseIntEnv(process.env.INTERPEER_CACHE_TTL_MS, DEFAULT_CACHE_TTL_MS),
+      maxEntries: parseIntEnv(
+        process.env.INTERPEER_CACHE_MAX_ENTRIES,
+        DEFAULT_CACHE_MAX_ENTRIES
+      )
     }
   };
 }
