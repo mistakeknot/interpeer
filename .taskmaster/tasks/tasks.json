@@ -1,0 +1,265 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": "1",
+        "title": "Create MCP server project structure and dependencies",
+        "description": "Set up the foundational TypeScript project structure for the Claude MCP bridge server",
+        "status": "done",
+        "dependencies": [],
+        "priority": "high",
+        "details": "Successfully scaffolded a standalone TypeScript package at tools/interpeer-mcp/ with npm init. Installed core dependencies: @modelcontextprotocol/sdk for MCP protocol, @anthropic-ai/sdk for Claude API integration, and dotenv for environment configuration. Added TypeScript development tooling including typescript, @types/node, and ts-node. Configured tsconfig.json for ESNext Node.js builds with strict type checking, source maps, and declaration files. Set up package.json with build/dev scripts and bin entry pointing to dist/bin/interpeer-mcp.js executable. Created initial project structure with src/index.ts exporting bootstrapServer function and src/bin/interpeer-mcp.ts CLI entry point. Added local .gitignore for dist/, node_modules/, and .env files. Verified TypeScript compilation builds successfully to dist/ directory.",
+        "testStrategy": "Project scaffolding completed successfully: npm install runs without errors, TypeScript compilation (tsc) builds cleanly to dist/ directory, package.json bin field correctly points to dist/bin/interpeer-mcp.js executable, and basic project structure is properly established with src/ source files and proper module exports.",
+        "subtasks": [],
+        "updatedAt": "2025-10-25T00:23:40.118Z"
+      },
+      {
+        "id": "2",
+        "title": "Implement core MCP server with claude_review tool",
+        "description": "Build the main MCP server implementation that exposes the claude_review tool",
+        "status": "done",
+        "dependencies": [
+          "1"
+        ],
+        "priority": "high",
+        "details": "Successfully implemented complete MCP server in tools/interpeer-mcp/src/index.ts with singleton McpServer instance using @modelcontextprotocol/sdk. Registered claude_review tool with comprehensive zod schema validation for content (required string), focus (optional string array), style (structured/freeform enum), and time_budget_seconds (30-600 integer range) parameters. Implemented stdio transport via StdioServerTransport for MCP protocol communication. Added proper error handling, version detection from package.json, environment loading via dotenv, and logging using MCP's sendLoggingMessage events. Created executable binary at src/bin/interpeer-mcp.ts that bootstraps the server. Package.json configured with correct bin field pointing to dist/bin/interpeer-mcp.js and build/dev scripts. Added zod dependency for robust input validation. Server includes placeholder response mechanism ready for Claude API integration in subsequent tasks.",
+        "testStrategy": "MCP server implementation complete and ready for testing. Test server startup by running 'npm run dev' in tools/interpeer-mcp directory and verify it responds to MCP protocol messages correctly. Validate claude_review tool registration and schema validation by sending test inputs through MCP client. Verify binary executable works correctly after 'npm run build' by testing dist/bin/interpeer-mcp.js. Test environment variable loading and version detection functionality.",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create MCP server singleton with version detection",
+            "description": "Implement singleton McpServer instance with automatic version loading from package.json",
+            "dependencies": [],
+            "details": "Created singleton pattern in ensureServerInstance() function that instantiates McpServer with name 'interpeer-mcp' and version loaded from package.json. Implemented loadPackageVersion() function that reads ../package.json relative to compiled location with error handling defaulting to '0.0.0'. Server instance is reused across multiple bootstrap calls to prevent duplicate registrations.",
+            "status": "done",
+            "testStrategy": "Verify version is correctly loaded from package.json and server singleton prevents duplicate instances",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Register claude_review tool with zod schema validation",
+            "description": "Register the claude_review tool with comprehensive input validation using zod schemas",
+            "dependencies": [
+              1
+            ],
+            "details": "Implemented claudeReviewInputSchema using zod with content (required string min 1 char), focus (optional string array), style (optional 'structured'/'freeform' enum), and time_budget_seconds (optional integer 30-600 range) fields. Registered tool using server.registerTool() with proper title, description, and inputSchema pointing to zod schema shape. Tool handler accepts validated input and returns placeholder response with content analysis summary.",
+            "status": "done",
+            "testStrategy": "Test schema validation with various input combinations and verify tool registration in MCP server",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Implement stdio transport and logging",
+            "description": "Set up stdio transport for MCP communication with proper logging infrastructure",
+            "dependencies": [
+              2
+            ],
+            "details": "Implemented StdioServerTransport for MCP protocol communication in bootstrapServer() function. Added comprehensive logging using server.sendLoggingMessage() for startup events, duplicate bootstrap detection, and operational status. Includes project root path detection and tool registration confirmation in log messages. Proper async/await error handling throughout transport setup.",
+            "status": "done",
+            "testStrategy": "Verify stdio transport connects properly and logging messages are emitted correctly during server lifecycle",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Create executable binary and environment setup",
+            "description": "Implement command-line binary and environment variable loading infrastructure",
+            "dependencies": [
+              3
+            ],
+            "details": "Created src/bin/interpeer-mcp.ts executable that imports bootstrapServer and calls it with current working directory as project root. Added shebang line and proper error handling with process.exitCode. Implemented environment loading using dotenv.config() at module top-level. Package.json bin field points to dist/bin/interpeer-mcp.js after TypeScript compilation.",
+            "status": "done",
+            "testStrategy": "Test binary executable functionality and environment variable loading from .env files",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2025-10-25T00:35:08.829Z"
+      },
+      {
+        "id": "3",
+        "title": "Integrate Anthropic Claude API client",
+        "description": "Add Claude API integration to process tool invocations and return formatted responses",
+        "status": "done",
+        "dependencies": [
+          "2"
+        ],
+        "priority": "high",
+        "details": "Reworked Claude API integration to use Claude Code via AI SDK provider instead of direct Anthropic HTTP calls. Implementation now includes: CLI availability checks for Claude Code installation, optional INTERPEER_CLAUDE_SETTING_SOURCES parsing for configuration, generateText integration that passes interpeer-formatted prompts to claudeCode() models, and response handling that surfaces usage metadata from Claude Code. Built comprehensive error handling for CLI/login failures and graceful fallback behaviors. The claude_review tool now leverages Claude Code's existing authentication and model access rather than requiring separate ANTHROPIC_API_KEY configuration.",
+        "testStrategy": "Verify Claude Code CLI availability detection works correctly, test claude_review tool functionality with valid Claude Code installation and authentication, confirm structured response format still matches interpeer conventions, validate error handling for missing CLI or authentication failures, ensure usage metadata is properly extracted from Claude Code responses, and test both structured and freeform response styles through the new AI SDK integration.",
+        "subtasks": [
+          {
+            "id": 5,
+            "title": "Replace direct Anthropic API with Claude Code AI SDK integration",
+            "description": "Refactor claude_review implementation to use Claude Code CLI via AI SDK provider instead of direct HTTP calls",
+            "dependencies": [
+              4
+            ],
+            "details": "Replace the direct Anthropic API integration with Claude Code CLI-based approach using AI SDK provider. Implement CLI availability checks to verify Claude Code installation, add optional INTERPEER_CLAUDE_SETTING_SOURCES parsing for configuration management, integrate generateText() function that passes interpeer-formatted prompts to claudeCode() models, and update response handling to extract usage metadata from Claude Code responses. Remove dependency on ANTHROPIC_API_KEY and leverage Claude Code's existing authentication system.",
+            "status": "pending",
+            "testStrategy": "Test Claude Code CLI detection, verify generateText integration works with various prompt types, confirm usage metadata extraction, and validate error handling for CLI/authentication failures",
+            "parentId": "undefined"
+          },
+          {
+            "id": 1,
+            "title": "Install and configure Anthropic SDK dependency",
+            "description": "Add @anthropic-ai/sdk package and set up basic configuration for Claude API access",
+            "dependencies": [],
+            "details": "Install @anthropic-ai/sdk via npm/pnpm and configure basic client initialization. Set up environment variable loading for ANTHROPIC_API_KEY using dotenv package. Create error handling for missing API key scenarios.",
+            "status": "done",
+            "testStrategy": "Verify package installation and basic client instantiation without API calls",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Implement lazy client initialization with configuration",
+            "description": "Create ensureAnthropicClient function with environment-based configuration options",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement ensureAnthropicClient() function in tools/interpeer-mcp/src/index.ts that checks for ANTHROPIC_API_KEY environment variable and initializes singleton client. Support configurable model selection via INTERPEER_CLAUDE_MODEL (default: claude-3-5-sonnet-20241022), max tokens via INTERPEER_CLAUDE_MAX_TOKENS (default: 2048), and temperature via INTERPEER_CLAUDE_TEMPERATURE (default: 0.2). Include proper error handling for missing API key.",
+            "status": "done",
+            "testStrategy": "Test client initialization with and without environment variables, verify configuration loading",
+            "parentId": "undefined"
+          },
+          {
+            "id": 3,
+            "title": "Build structured prompt templates for interpeer format",
+            "description": "Create buildClaudePrompts function that generates system and user prompts matching interpeer conventions",
+            "dependencies": [
+              2
+            ],
+            "details": "Implement buildClaudePrompts() function in tools/interpeer-mcp/src/index.ts that takes ClaudeReviewInput and generates structured prompts. Support both structured format (Strengths/Concerns/Recommendations sections) and optional freeform mode via style parameter. Include focus area customization support and proper content formatting with markdown code blocks.",
+            "status": "done",
+            "testStrategy": "Test prompt generation with various input combinations, verify structured vs freeform output",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Implement Claude API request handling in tool handler",
+            "description": "Update claude_review tool handler to invoke Claude API and process responses",
+            "dependencies": [
+              3
+            ],
+            "details": "Implement handleClaudeReview() function in tools/interpeer-mcp/src/index.ts that calls Claude API with built prompts, processes response content, and extracts usage metadata. Update claude_review tool handler to use this function, add comprehensive error handling, success/failure logging with structured data, and return properly formatted MCP tool results with usage metadata.",
+            "status": "done",
+            "testStrategy": "Test end-to-end claude_review tool functionality with various inputs and error conditions",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2025-10-25T01:22:33.271Z"
+      },
+      {
+        "id": "4",
+        "title": "Create CLI executable and stdio transport",
+        "description": "Build the command-line interface that enables MCP communication over stdio",
+        "details": "Create bin/claude-mcp executable script with proper shebang for Node.js execution. Implement stdio transport setup connecting the MCP server to stdin/stdout for protocol communication. Add proper process handling, signal management, and graceful shutdown. Ensure the executable is marked as executable and properly references the compiled JavaScript.",
+        "testStrategy": "Test CLI executable by running it directly and sending MCP protocol messages via stdin. Verify proper stdio communication and protocol compliance. Test process lifecycle and signal handling.",
+        "priority": "medium",
+        "dependencies": [
+          "3"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "5",
+        "title": "Implement prompt templates and formatting",
+        "description": "Create structured prompt templates that align with interpeer workflow patterns",
+        "details": "Develop prompt templates for different review types (code review, design review, architecture review). Implement the interpeer-style structured format focusing on Strengths, Concerns, and Recommendations sections. Add support for focus area customization (security, performance, architecture, etc.) and time budget constraints. Include context preparation and response formatting logic.",
+        "testStrategy": "Test prompt templates with various input types and focus areas. Verify outputs match interpeer's structured format. Test time budget enforcement and focus area filtering in generated prompts.",
+        "priority": "medium",
+        "dependencies": [
+          "3"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "6",
+        "title": "Add configuration management and safety features",
+        "description": "Implement configuration system with safety controls and operational features",
+        "details": "Create configuration system for model selection, token limits, rate limiting, and timeout settings. Implement request/response logging with sensitive data redaction. Add retry logic with exponential backoff for API failures. Include configuration validation and default value handling. Support environment variable overrides for all configuration options.",
+        "testStrategy": "Test configuration loading from environment variables and config files. Verify rate limiting and retry mechanisms work correctly. Test logging functionality with redaction of sensitive API keys and content when configured.",
+        "priority": "medium",
+        "dependencies": [
+          "4"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "7",
+        "title": "Build and package the MCP server",
+        "description": "Set up build process and packaging for distribution and deployment",
+        "details": "Configure TypeScript build process to compile src/ to dist/. Set up npm scripts for build, test, and start commands. Ensure bin/claude-mcp properly references compiled JavaScript output. Add file permissions handling for executable. Create .env.example file with required environment variables template.",
+        "testStrategy": "Test complete build process from TypeScript compilation to executable creation. Verify packaged server runs correctly after build. Test installation and execution from different working directories.",
+        "priority": "medium",
+        "dependencies": [
+          "6"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "8",
+        "title": "Create MCP client integration documentation",
+        "description": "Document how to register and use the Claude MCP bridge with various MCP clients",
+        "details": "Create documentation for integrating the MCP server with Codex CLI and other MCP-capable clients. Include configuration examples for different client types (stdio, WebSocket). Document the tool schema, usage patterns, and example invocations. Add troubleshooting guide for common integration issues and client capability requirements.",
+        "testStrategy": "Validate documentation by following integration steps with a test MCP client. Verify configuration examples work correctly and tool invocations succeed. Test documentation completeness with a fresh environment setup.",
+        "priority": "low",
+        "dependencies": [
+          "7"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "9",
+        "title": "Update interpeer skill documentation for reverse workflow",
+        "description": "Extend existing interpeer SKILL.md to document the Codex-to-Claude workflow",
+        "details": "Add new section to skills/interpeer/SKILL.md documenting 'Reverse Second Opinion (Codex → Claude)' workflow. Include when to invoke the MCP tool, prompt templates aligning with interpeer review structure, and how to reconcile Claude's feedback with Codex's analysis. Document prerequisite commands and integration patterns. Maintain consistency with existing skill documentation style and structure.",
+        "testStrategy": "Review updated documentation for consistency with existing interpeer patterns. Verify workflow instructions are clear and actionable. Test documented examples and command syntax for accuracy.",
+        "priority": "low",
+        "dependencies": [
+          "8"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "10",
+        "title": "Implement advanced features and optimizations",
+        "description": "Add enhanced functionality including streaming, caching, and multiple prompt templates",
+        "details": "Implement response streaming for real-time feedback display. Add response caching mechanism for repeated prompts to save API tokens. Create additional prompt templates for different review types (brainstorm_alternatives, review_design, security_audit). Implement file handle support via MCP resources for direct file references. Add metrics collection and usage analytics.",
+        "testStrategy": "Test streaming functionality with large responses. Verify caching works correctly and reduces API calls for identical prompts. Test all prompt templates with appropriate input scenarios. Validate file handle integration if MCP resources are supported.",
+        "priority": "low",
+        "dependencies": [
+          "9"
+        ],
+        "status": "in-progress",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Add multi-agent review routing",
+            "description": "Enable interpeer MCP server to request second opinions from multiple agent backends (Claude Code, Codex CLI, Factory Droid).",
+            "details": "Extend claude_review tool to accept a target agent parameter, implement adapters for Codex CLI and Factory CLI, and normalize responses so all agents can call through interpeer.",
+            "status": "in-progress",
+            "dependencies": [],
+            "parentTaskId": 10,
+            "updatedAt": "2025-10-25T02:33:57.844Z",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2025-10-25T02:33:57.844Z"
+      }
+    ],
+    "metadata": {
+      "version": "1.0.0",
+      "lastModified": "2025-10-25T02:33:57.844Z",
+      "taskCount": 10,
+      "completedCount": 3,
+      "tags": [
+        "master"
+      ]
+    }
+  }
+}
