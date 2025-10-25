@@ -53,6 +53,37 @@ Once prerequisites are met, install the plugin:
 
 After installation, Claude Code will automatically load the interpeer skill.
 
+### (Optional) Install the Interpeer MCP Server for Reverse Reviews
+
+To let Codex (or other agents) ask **Claude** for a second opinion, install the local MCP server included in this repo:
+
+```bash
+# From the repo root
+cd tools/interpeer-mcp
+
+# Install dependencies and build
+pnpm install
+pnpm run build
+
+# Ensure the CLI entrypoint is executable
+chmod +x dist/bin/interpeer-mcp.js
+
+# (Optional) run tests
+pnpm run test
+
+# (Optional) create a distributable tarball
+pnpm pack
+```
+
+The CLI can be launched manually:
+
+```bash
+INTERPEER_PROJECT_ROOT=/path/to/interpeer \
+  node /path/to/interpeer/tools/interpeer-mcp/dist/bin/interpeer-mcp.js
+```
+
+Codex, Factory CLI droids, or any MCP-capable client can register this binary. See [docs/interpeer-mcp.md](docs/interpeer-mcp.md) for detailed integration instructions (Codex CLI, Factory CLI, MCP Inspector), environment variables, caching, and troubleshooting.
+
 ## Usage
 
 Once installed, Claude will automatically use the interpeer skill when appropriate. You can also explicitly request it:
