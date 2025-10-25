@@ -378,6 +378,24 @@ export async function bootstrapServer(options: ServerBootstrapOptions = {}): Pro
 
 export default bootstrapServer;
 
+export const __testUtils = {
+  buildPromptBundle,
+  prepareInput,
+  buildCacheKey,
+  getCacheEntry,
+  storeCacheEntry,
+  ensureConfig,
+  loadConfig,
+  setProjectRoot(projectRoot: string) {
+    projectRootPath = projectRoot;
+    runtimeConfig = undefined;
+    resultCache.clear();
+  },
+  clearCache() {
+    resultCache.clear();
+  }
+};
+
 async function routeReview(input: ReviewInput): Promise<AgentReviewResult> {
   const config = ensureConfig();
   const agent = input.target_agent ?? DEFAULT_TARGET_AGENT;

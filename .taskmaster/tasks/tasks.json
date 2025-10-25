@@ -486,7 +486,7 @@
         "id": "10",
         "title": "Implement advanced features and optimizations",
         "description": "Add enhanced functionality including streaming, caching, and multiple prompt templates",
-        "status": "done",
+        "status": "in-progress",
         "dependencies": [
           "9"
         ],
@@ -576,16 +576,27 @@
             "status": "done",
             "testStrategy": "Test all three target agents (claude_code, codex_cli, factory_droid) through the claude_review tool. Verify CLI availability checks work correctly and error handling for missing CLIs.",
             "parentId": "undefined"
+          },
+          {
+            "id": 8,
+            "title": "Add automated tests",
+            "description": "Create unit/integration tests for interpeer MCP server routing, caching, and CLI adapters.",
+            "details": "",
+            "status": "done",
+            "dependencies": [],
+            "parentTaskId": 10,
+            "updatedAt": "2025-10-25T04:31:13.226Z",
+            "parentId": "undefined"
           }
         ],
-        "updatedAt": "2025-10-25T04:17:33.363Z"
+        "updatedAt": "2025-10-25T04:31:13.226Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-10-25T04:17:33.364Z",
+      "lastModified": "2025-10-25T04:31:13.227Z",
       "taskCount": 10,
-      "completedCount": 10,
+      "completedCount": 9,
       "tags": [
         "master"
       ]
