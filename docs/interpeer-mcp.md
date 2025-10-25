@@ -5,9 +5,9 @@
 - Provide a reversible bridge: Claude already calls Codex via the interpeer skill; we want Codex to call Claude without hand-copying prompts.
 
 ## High-Level Concept
-- **MCP Server**: Build a local MCP server that exposes one or more tools (e.g. `claude_review`) backed by Anthropic’s Claude API (Claude 3.5 Sonnet, Haiku, etc.).
-- **Codex CLI Integration**: Point Codex CLI (or any other MCP-capable client) at this server so it can issue tool calls during a session.
-- **Workflow**: Codex prepares context → calls `claude_review` via MCP → server relays prompt to Claude → returns response to Codex → Codex summarizes / reconciles with its own view.
+- **MCP Server**: Build a local MCP server that exposes one or more tools (e.g. `interpeer_review`) capable of delegating reviews to different agents (Claude Code, Codex CLI, Factory Droid, etc.).
+- **Agent Routing**: Clients specify a `target_agent`; the server executes the appropriate adapter (AI SDK for Claude/Codex, CLI bridge for Factory Droid) and normalizes the response.
+- **Workflow**: Primary agent prepares context → calls `interpeer_review` via MCP → server relays prompt to the selected peer → returns structured feedback → primary agent reconciles or summarizes.
 
 ## Prerequisites
 - Anthropic API key (or another provider that offers Claude models, e.g. OpenRouter).
@@ -25,8 +25,8 @@
 - **Tool Contract** (example):
   ```json
   {
-    "name": "claude_review",
-    "description": "Ask Claude for a second opinion on code or designs",
+    "name": "interpeer_review",
+    "description": "Ask another agent for a second opinion on code or designs",
     "input_schema": {
       "type": "object",
       "required": ["content"],
@@ -42,7 +42,25 @@
           "enum": ["structured", "freeform"],
           "default": "structured"
         },
-        "time_budget_seconds": { "type": "integer", "minimum": 30, "default": 90 }
+        "time_budget_seconds": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 600,
+          "default": 90,
+          "description": "Hint telling the peer reviewer to keep the response concise"
+        },
+        "review_type": {
+          "type": "string",
+          "enum": ["general", "code", "design", "architecture"],
+          "default": "general",
+          "description": "Template that tailors the guidance to match the artifact"
+        },
+        "target_agent": {
+          "type": "string",
+          "enum": ["claude_code", "codex_cli", "factory_droid"],
+          "default": "claude_code",
+          "description": "Peer agent that should answer the request"
+        }
       }
     }
   }
@@ -68,12 +86,12 @@
 
 2. **Create server entrypoint (`src/index.ts`)**
    - Import `createServer` from MCP SDK.
-   - Register a single tool `claude_review`.
+   - Register a single tool `interpeer_review`.
    - On invocation:
      - Parse and validate payload against schema.
-     - Build prompt by stitching interpeer-style guidance (strengths/concerns/recommendations).
-     - Call Claude via `await client.messages.create({ ... })`.
-     - Return formatted text as tool result.
+     - Build interpeer prompt bundle using configurable templates (general/code/design/architecture).
+     - Route to the desired agent adapter (Claude Code, Codex CLI, Factory CLI).
+     - Normalize the response and surface Strengths/Concerns/Recommendations (or freeform narrative).
 
 3. **Add CLI shim (`bin/claude-mcp`)** with shebang that runs the compiled JS and communicates over stdio (MCP standard).
 
@@ -90,23 +108,28 @@
      {
        "mcp_servers": [
          {
-           "name": "claude",
-           "command": "/absolute/path/to/bin/claude-mcp",
-           "args": []
+           "name": "interpeer",
+           "command": "/absolute/path/to/node",
+           "args": ["/absolute/path/to/interpeer/tools/interpeer-mcp/dist/bin/interpeer-mcp.js"],
+           "env": { "INTERPEER_PROJECT_ROOT": "/absolute/path/to/interpeer" }
          }
        ]
      }
      ```
-   - If Codex CLI lacks native MCP hooks, wrap the tool with a script: `codex exec "Use tool claude_review with input ..."` that spawns the MCP process, sends payload, and prints result.
+   - If Codex CLI lacks native MCP hooks, wrap the tool with a script: `codex exec "Use tool interpeer_review with input ..."` that spawns the MCP process, sends payload, and prints result.
 
 6. **Usage Pattern**
    ```bash
-   codex mcp exec claude claude_review '{
+   codex mcp exec interpeer interpeer_review '{
      "content": "Paste or read file content...",
-     "focus": ["architecture", "security"]
+     "focus": ["architecture", "security"],
+     "review_type": "code",
+     "target_agent": "codex_cli",
+     "style": "structured",
+     "time_budget_seconds": 120
    }'
    ```
-   - Codex receives Claude’s reply, then you reconcile with your own summary (mirroring interpeer workflow).
+   - The MCP server routes the request to the Codex CLI adapter, returns a normalized review, and the primary agent reconciles with its own summary (mirroring interpeer workflow).
 
 7. **Optional Enhancements**
    - Stream results to Codex for incremental display.
@@ -126,7 +149,7 @@
   - When to invoke the MCP tool.
   - Prompt templates aligning with interpeer review structure.
   - How to reconcile Claude’s feedback with Codex’s own analysis.
-- Note any prerequisite commands (e.g. `codex mcp exec claude claude_review ...`).
+- Note any prerequisite commands (e.g. `codex mcp exec claude interpeer_review ...`).
 - Optionally publish the MCP server as a separate package so others can reuse it.
 
 ## Alternative: Python Implementation
@@ -140,7 +163,7 @@
 2. Prototype MCP server that echoes predefined prompts to ensure wiring works.
 3. Add Anthropic API integration and basic prompt template.
 4. Document the workflow in this repository (SKILL.md, README).
-5. Dogfood: run Codex CLI session, call `claude_review`, iterate on prompt quality.
+5. Dogfood: run Codex CLI session, call `interpeer_review`, iterate on prompt quality.
 
 ## Reference: Task Master MCP Patterns Worth Reusing
 - **FastMCP scaffolding**: Task Master (`mcp-server/src/index.js`) wraps `FastMCP` with stdio transport, connect handlers, and 2-minute timeouts. We can copy this shape for quick bootstrapping instead of hand-rolling the server.
