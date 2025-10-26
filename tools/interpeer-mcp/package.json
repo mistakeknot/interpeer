@@ -15,6 +15,7 @@
   "author": "",
   "license": "ISC",
   "bin": {
+    "interpeer": "./dist/bin/interpeer-cli.js",
     "interpeer-mcp": "./dist/bin/interpeer-mcp.js",
     "interpeer-agents": "./dist/bin/interpeer-agents.js"
   },

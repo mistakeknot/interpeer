@@ -501,48 +501,44 @@ function removeAgentAction(configPath: string, command: Command & { kind: 'remov
 }
 
 async function main() {
-  const argv = process.argv.slice(2);
+  try {
+    await runAgentsCli(process.argv.slice(2));
+  } catch (error) {
+    console.error((error as Error).message);
+    process.exitCode = 1;
+  }
+}
 
+export async function runAgentsCli(argv: string[]): Promise<void> {
   if (shouldShowHelp(argv)) {
     printHelp();
     return;
   }
 
-  let parsed: Command;
-  try {
-    parsed = parseCliArgs(argv);
-  } catch (error) {
-    console.error((error as Error).message);
-    process.exitCode = 1;
-    return;
-  }
-
+  const parsed = parseCliArgs(argv);
   const configPath = getConfigPath(parsed.projectRoot, parsed.configPath);
 
-  try {
-    switch (parsed.kind) {
-      case 'list':
-        listAction(parsed.projectRoot, configPath);
-        break;
-      case 'list-agents':
-        listAgentsAction(parsed.projectRoot, configPath);
-        break;
-      case 'set-default':
-        setDefaultAction(parsed.projectRoot, configPath, parsed);
-        break;
-      case 'set-agent':
-        setAgentAction(parsed.projectRoot, configPath, parsed);
-        break;
-      case 'add-agent':
-        addAgentAction(parsed.projectRoot, configPath, parsed);
-        break;
-      case 'remove-agent':
-        removeAgentAction(configPath, parsed);
-        break;
-    }
-  } catch (error) {
-    console.error((error as Error).message);
-    process.exitCode = 1;
+  switch (parsed.kind) {
+    case 'list':
+      listAction(parsed.projectRoot, configPath);
+      break;
+    case 'list-agents':
+      listAgentsAction(parsed.projectRoot, configPath);
+      break;
+    case 'set-default':
+      setDefaultAction(parsed.projectRoot, configPath, parsed);
+      break;
+    case 'set-agent':
+      setAgentAction(parsed.projectRoot, configPath, parsed);
+      break;
+    case 'add-agent':
+      addAgentAction(parsed.projectRoot, configPath, parsed);
+      break;
+    case 'remove-agent':
+      removeAgentAction(configPath, parsed);
+      break;
+    default:
+      throw new Error(`Unsupported command: ${(parsed as { kind: string }).kind}`);
   }
 }
 
