@@ -53,6 +53,66 @@ Once prerequisites are met, install the plugin:
 
 After installation, Claude Code will automatically load the interpeer skill.
 
+### (Optional) Install the Interpeer MCP Server for Reverse Reviews
+
+To let Codex (or other agents) ask **Claude** for a second opinion, install the local MCP server included in this repo:
+
+```bash
+# From the repo root
+cd tools/interpeer-mcp
+
+# Install dependencies and build
+pnpm install
+pnpm run build
+
+# Ensure the CLI entrypoint is executable
+chmod +x dist/bin/interpeer-mcp.js
+
+# (Optional) run tests
+pnpm run test
+
+# (Optional) create a distributable tarball
+pnpm pack
+```
+
+The CLI can be launched manually (use `--default-agent` / `--default-model` flags to set defaults):
+
+```bash
+INTERPEER_PROJECT_ROOT=/path/to/interpeer \
+  node /path/to/interpeer/tools/interpeer-mcp/dist/bin/interpeer-mcp.js \
+  --default-agent codex_cli \
+  --default-model gpt-5-codex
+```
+
+Codex, Factory CLI droids, or any MCP-capable client can register this binary. See [docs/interpeer-mcp.md](docs/interpeer-mcp.md) for detailed integration instructions (Codex CLI, Factory CLI, MCP Inspector), environment variables, caching, and troubleshooting.
+
+To customize agents/models, create `.taskmaster/interpeer.config.json` in your project (or set `INTERPEER_CONFIG_PATH`) and define additional adapters or override defaults. Environment variables always win if both are provided.
+
+You can also manage defaults from the command line:
+
+```bash
+# Ensure the CLI is built (once per change)
+pnpm --filter interpeer-mcp run build
+
+# Show CLI help/usage
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js --help
+
+# Show current defaults and available agents
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js list
+
+# Set default agent/model (writes to .taskmaster/interpeer.config.json)
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js set-default --agent claude_code --model claude-4.5-sonnet
+
+# Remove a default model (falls back to per-agent config)
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js set-default --model ""
+
+# Update a built-in adapter (claude/codex/factory) without re-adding it
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js set-agent --id claude --command claude --model claude-4.5-sonnet
+
+# Add a custom adapter (ids must differ from claude/codex/factory)
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js add-agent --id openrouter --command or --model anthropic/claude-4.5-sonnet
+```
+
 ## Usage
 
 Once installed, Claude will automatically use the interpeer skill when appropriate. You can also explicitly request it:

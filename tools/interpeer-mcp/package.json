@@ -1,0 +1,36 @@
+{
+  "name": "interpeer-mcp",
+  "version": "1.0.0",
+  "description": "MCP server bridge to request Claude feedback for Interpeer",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --loader ts-node/esm src/index.ts",
+    "test": "vitest run",
+    "prepare": "npm run build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bin": {
+    "interpeer-mcp": "./dist/bin/interpeer-mcp.js",
+    "interpeer-agents": "./dist/bin/interpeer-agents.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.2",
+    "ai": "^5.0.78",
+    "ai-sdk-provider-claude-code": "^2.1.0",
+    "ai-sdk-provider-codex-cli": "^0.5.0",
+    "dotenv": "^17.2.3",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "@vitest/coverage-v8": "^4.0.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.3"
+  }
+}
