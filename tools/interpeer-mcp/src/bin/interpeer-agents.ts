@@ -14,7 +14,8 @@ interface RetryCLISettings {
   baseDelayMs?: number;
 }
 
-const DEFAULT_CONFIG_PATH = '.taskmaster/interpeer.config.json';
+const DEFAULT_CONFIG_PATH = '.interpeer/interpeer.config.json';
+const LEGACY_CONFIG_PATH = '.taskmaster/interpeer.config.json';
 const VALID_AGENTS = ['claude_code', 'codex_cli', 'factory_droid'];
 const RESERVED_AGENT_IDS = new Set(['claude', 'codex', 'factory']);
 const AGENT_ID_PATTERN = /^[a-z0-9_-]+$/;
@@ -313,6 +314,11 @@ function loadMergedConfig(projectRoot: string, configPath: string | undefined) {
 
 function loadConfigFile(path: string): any {
   if (!existsSync(path)) {
+    // Support legacy location transparently
+    const legacyPath = path.replace(DEFAULT_CONFIG_PATH, LEGACY_CONFIG_PATH);
+    if (legacyPath !== path && existsSync(legacyPath)) {
+      return loadConfigFile(legacyPath);
+    }
     return {};
   }
 
@@ -368,13 +374,22 @@ function printHelp(): void {
   console.log(lines.join('\n'));
 }
 
+function resolveConfigPath(path: string): string {
+  if (existsSync(path)) return path;
+  const legacyPath = path.replace(DEFAULT_CONFIG_PATH, LEGACY_CONFIG_PATH);
+  if (legacyPath !== path && existsSync(legacyPath)) {
+    return `${legacyPath} (legacy)`;
+  }
+  return path;
+}
+
 function listAction(projectRoot: string, configPath: string) {
   const config = loadMergedConfig(projectRoot, configPath);
 
   console.log('Interpeer MCP configuration');
   console.log('----------------------------');
   console.log(`Project root: ${projectRoot}`);
-  console.log(`Config file: ${configPath}`);
+  console.log(`Config file: ${resolveConfigPath(configPath)}`);
   console.log(`Default agent: ${config.defaults?.agent ?? 'claude_code'}`);
   console.log(`Default model: ${config.defaults?.model ?? 'inherit (agent specific)'}`);
   console.log(`Configured agents: ${Object.keys(config.agents).join(', ')}`);

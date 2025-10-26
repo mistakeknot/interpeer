@@ -86,7 +86,7 @@ INTERPEER_PROJECT_ROOT=/path/to/interpeer \
 
 Codex, Factory CLI droids, or any MCP-capable client can register this binary. See [docs/interpeer-mcp.md](docs/interpeer-mcp.md) for detailed integration instructions (Codex CLI, Factory CLI, MCP Inspector), environment variables, caching, and troubleshooting.
 
-To customize agents/models, create `.taskmaster/interpeer.config.json` in your project (or set `INTERPEER_CONFIG_PATH`) and define additional adapters or override defaults. Environment variables always win if both are provided.
+To customize agents/models, create `.interpeer/interpeer.config.json` in your project (or set `INTERPEER_CONFIG_PATH`) and define additional adapters or override defaults. Environment variables always win if both are provided. (Legacy installs that used `.taskmaster/interpeer.config.json` are still loaded automatically but will emit a migration warning.)
 
 You can also manage defaults from the command line:
 
