@@ -186,30 +186,21 @@
 ## Client Integration Examples
 
 ### Codex CLI
-1. Ensure the packaged CLI is available and executable:
+1. Build the CLI (once per code change):
    ```bash
-   cd /path/to/interpeer/tools/interpeer-mcp
-   pnpm run build
-   chmod +x dist/bin/interpeer-mcp.js
+   pnpm --filter interpeer-mcp run build
    ```
-2. Add the server to Codex CLI’s configuration (preview syntax):
-   ```jsonc
-   {
-     "mcp_servers": [
-       {
-         "name": "interpeer",
-         "command": "/usr/local/bin/node",
-         "args": [
-           "/path/to/interpeer/tools/interpeer-mcp/dist/bin/interpeer-mcp.js"
-         ],
-         "env": {
-           "INTERPEER_PROJECT_ROOT": "/path/to/interpeer"
-         }
-       }
-     ]
-   }
+2. Generate a configuration snippet tailored to your workspace:
+   ```bash
+   node tools/interpeer-mcp/dist/bin/interpeer-cli.js mcp config codex --project-root /path/to/interpeer
    ```
-3. Invoke the tool:
+   Copy the JSON output into `~/.codex/mcp.json` (inside the `mcp_servers` array), or pipe it directly:
+   ```bash
+   node tools/interpeer-mcp/dist/bin/interpeer-cli.js mcp config codex --project-root /path/to/interpeer \
+     | codex mcp add --from-stdin
+   ```
+   (Once the package is published to npm you will be able to run `interpeer mcp config codex ...` or `npx interpeer-mcp interpeer mcp config codex ...`.)
+3. Start Codex and call the tool:
    ```bash
    codex mcp exec interpeer interpeer_review '{
      "content": "function add(a, b) { return a + b; }",
@@ -221,8 +212,10 @@
    ```
 
 ### Factory CLI (Droid)
-1. Register the server:
+1. Register the server (once):
    ```bash
+   node tools/interpeer-mcp/dist/bin/interpeer-cli.js mcp config codex --project-root /path/to/interpeer
+   # Copy the command segment, or run:
    /mcp add interpeer "node /path/to/interpeer/tools/interpeer-mcp/dist/bin/interpeer-mcp.js" \
      -e INTERPEER_PROJECT_ROOT=/path/to/interpeer
    ```
@@ -239,10 +232,10 @@
 2. Connect and call `interpeer_review` with different `target_agent` values to validate routing.
 
 ### CLI Flags
-- `--project-root <path>`: override `INTERPEER_PROJECT_ROOT`
-- `--config <path>`: load a custom JSON config file
-- `--default-agent <agent>`: set baseline agent when `target_agent` omitted (`claude_code`, `codex_cli`, `factory_droid`)
-- `--default-model <model>`: set baseline model for the default agent
+- `interpeer mcp serve --project-root <path>`: overrides `INTERPEER_PROJECT_ROOT`
+- `interpeer mcp serve --config <path>`: load a custom JSON config file
+- `interpeer agents set-default --agent <agent>`: default agent when `target_agent` omitted (`claude_code`, `codex_cli`, `factory_droid`)
+- `interpeer agents set-default --model <model>`: default model for the default agent
 
 ### Managing Defaults via CLI
 
@@ -252,20 +245,20 @@ Use the helper command to inspect or update configuration without editing JSON b
 # From repo root
 pnpm --filter interpeer-mcp run build
 
-node tools/interpeer-mcp/dist/bin/interpeer-agents.js --help
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js help
 
-node tools/interpeer-mcp/dist/bin/interpeer-agents.js list
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents list
 
-node tools/interpeer-mcp/dist/bin/interpeer-agents.js set-default --agent codex_cli --model gpt-5-codex
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents set-default --agent codex_cli --model gpt-5-codex
 
 # Clear a default model (falls back to per-adapter defaults)
-node tools/interpeer-mcp/dist/bin/interpeer-agents.js set-default --model ""
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents set-default --model ""
 
 # Update a built-in adapter's command/model without redefining it
-node tools/interpeer-mcp/dist/bin/interpeer-agents.js set-agent --id claude --command claude --model claude-4.5-sonnet
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents set-agent --id claude --command claude --model claude-4.5-sonnet
 
 # Add a custom adapter (ids must not be claude/codex/factory)
-node tools/interpeer-mcp/dist/bin/interpeer-agents.js add-agent --id openrouter --command or --model anthropic/claude-4.5-sonnet
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents add-agent --id openrouter --command or --model anthropic/claude-4.5-sonnet
 ```
 
 ## Environment Reference (`.env.example`)

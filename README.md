@@ -94,23 +94,26 @@ You can also manage defaults from the command line:
 # Ensure the CLI is built (once per change)
 pnpm --filter interpeer-mcp run build
 
-# Show CLI help/usage
-node tools/interpeer-mcp/dist/bin/interpeer-agents.js --help
+# Show CLI help/usage (local checkout)
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js help
 
-# Show current defaults and available agents
-node tools/interpeer-mcp/dist/bin/interpeer-agents.js list
+# Launch the MCP server with sensible defaults
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js mcp serve --project-root "$(pwd)"
 
-# Set default agent/model (writes to .taskmaster/interpeer.config.json)
-node tools/interpeer-mcp/dist/bin/interpeer-agents.js set-default --agent claude_code --model claude-4.5-sonnet
+# Generate a Codex MCP config snippet to copy into ~/.codex/mcp.json
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js mcp config codex --project-root "$(pwd)"
 
-# Remove a default model (falls back to per-agent config)
-node tools/interpeer-mcp/dist/bin/interpeer-agents.js set-default --model ""
+# Manage defaults and adapters through the wrapper
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents list
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents set-default --agent claude_code --model claude-4.5-sonnet
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents set-default --model ""
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents set-agent --id claude --command claude --model claude-4.5-sonnet
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents add-agent --id openrouter --command or --model anthropic/claude-4.5-sonnet
 
-# Update a built-in adapter (claude/codex/factory) without re-adding it
-node tools/interpeer-mcp/dist/bin/interpeer-agents.js set-agent --id claude --command claude --model claude-4.5-sonnet
-
-# Add a custom adapter (ids must differ from claude/codex/factory)
-node tools/interpeer-mcp/dist/bin/interpeer-agents.js add-agent --id openrouter --command or --model anthropic/claude-4.5-sonnet
+# Once published to npm: install globally or run via npx
+# npm install -g interpeer-mcp
+# interpeer help
+# interpeer mcp config codex --project-root /path/to/project
 ```
 
 ## Usage

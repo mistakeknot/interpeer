@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import bootstrapServer, {
   setDefaultAgentOverride,
   setDefaultModelOverride
@@ -47,8 +48,8 @@ function parseArgs(argv: string[]) {
   }
 }
 
-async function main(): Promise<void> {
-  parseArgs(process.argv.slice(2));
+export async function runMcpCli(argv: string[]): Promise<void> {
+  parseArgs(argv);
 
   const projectRootCandidate =
     process.env.INTERPEER_PROJECT_ROOT && process.env.INTERPEER_PROJECT_ROOT.trim().length > 0
@@ -58,16 +59,33 @@ async function main(): Promise<void> {
   const projectRoot = resolve(projectRootCandidate);
   await bootstrapServer({ projectRoot });
 
-const handleShutdown = (signal: NodeJS.Signals) => {
-  console.error(`Interpeer MCP server received ${signal}. Shutting down.`);
-  process.exit(0);
-};
+  const handleShutdown = (signal: NodeJS.Signals) => {
+    console.error(`Interpeer MCP server received ${signal}. Shutting down.`);
+    process.exit(0);
+  };
 
-process.once('SIGINT', handleShutdown);
-process.once('SIGTERM', handleShutdown);
+  process.once('SIGINT', handleShutdown);
+  process.once('SIGTERM', handleShutdown);
 }
 
-main().catch((error) => {
-  console.error('Interpeer MCP server failed to start:', error);
-  process.exitCode = 1;
-});
+async function main(): Promise<void> {
+  try {
+    await runMcpCli(process.argv.slice(2));
+  } catch (error) {
+    console.error('Interpeer MCP server failed to start:', error);
+    process.exitCode = 1;
+  }
+}
+
+const invokedDirectly = (() => {
+  if (!process.argv[1]) return false;
+  try {
+    return resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+})();
+
+if (invokedDirectly) {
+  await main();
+}
