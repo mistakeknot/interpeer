@@ -91,11 +91,26 @@ To customize agents/models, create `.taskmaster/interpeer.config.json` in your p
 You can also manage defaults from the command line:
 
 ```bash
+# Ensure the CLI is built (once per change)
+pnpm --filter interpeer-mcp run build
+
+# Show CLI help/usage
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js --help
+
 # Show current defaults and available agents
-pnpm exec interpeer-agents list
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js list
 
 # Set default agent/model (writes to .taskmaster/interpeer.config.json)
-pnpm exec interpeer-agents set-default --agent claude_code --model claude-3-5-sonnet-20241022
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js set-default --agent claude_code --model claude-4.5-sonnet
+
+# Remove a default model (falls back to per-agent config)
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js set-default --model ""
+
+# Update a built-in adapter (claude/codex/factory) without re-adding it
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js set-agent --id claude --command claude --model claude-4.5-sonnet
+
+# Add a custom adapter (ids must differ from claude/codex/factory)
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js add-agent --id openrouter --command or --model anthropic/claude-4.5-sonnet
 ```
 
 ## Usage

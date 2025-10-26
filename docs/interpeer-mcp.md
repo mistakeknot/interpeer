@@ -70,7 +70,7 @@
         },
         "target_model": {
           "type": "string",
-          "description": "Override the model identifier for the selected agent (e.g. claude-3-5-sonnet-20241022)"
+          "description": "Override the model identifier for the selected agent (e.g. claude-4.5-sonnet)"
         },
         "resource_paths": {
           "type": "array",
@@ -88,7 +88,7 @@
   {
     "status": "ok",
     "analysis": "... Claude’s formatted answer ...",
-    "model": "claude-3-5-sonnet-20241022"
+    "model": "claude-4.5-sonnet"
   }
   ```
 
@@ -250,9 +250,22 @@ Use the helper command to inspect or update configuration without editing JSON b
 
 ```bash
 # From repo root
-pnpm exec interpeer-agents list
+pnpm --filter interpeer-mcp run build
 
-pnpm exec interpeer-agents set-default --agent codex_cli --model gpt-5-codex
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js --help
+
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js list
+
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js set-default --agent codex_cli --model gpt-5-codex
+
+# Clear a default model (falls back to per-adapter defaults)
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js set-default --model ""
+
+# Update a built-in adapter's command/model without redefining it
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js set-agent --id claude --command claude --model claude-4.5-sonnet
+
+# Add a custom adapter (ids must not be claude/codex/factory)
+node tools/interpeer-mcp/dist/bin/interpeer-agents.js add-agent --id openrouter --command or --model anthropic/claude-4.5-sonnet
 ```
 
 ## Environment Reference (`.env.example`)
@@ -331,7 +344,7 @@ INTERPEER_CONFIG_PATH=.taskmaster/interpeer.config.json
     },
     "openrouter": {
       "command": "or",
-      "model": "openrouter/claude-3.5-sonnet"
+      "model": "openrouter/claude-4.5-sonnet"
     }
   }
 }
