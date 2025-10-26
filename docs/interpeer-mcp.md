@@ -304,8 +304,8 @@ INTERPEER_CACHE_MAX_ENTRIES=50
 INTERPEER_LOGGING_ENABLED=true
 INTERPEER_LOGGING_REDACT_CONTENT=true
 
-# Optional config file location (defaults to .taskmaster/interpeer.config.json)
-INTERPEER_CONFIG_PATH=.taskmaster/interpeer.config.json
+# Optional config file location (defaults to .interpeer/interpeer.config.json)
+INTERPEER_CONFIG_PATH=.interpeer/interpeer.config.json
 ```
 
 ## Troubleshooting
@@ -313,9 +313,9 @@ INTERPEER_CONFIG_PATH=.taskmaster/interpeer.config.json
 - **Permission denied**: run `chmod +x dist/bin/interpeer-mcp.js` after building.
 - **Incorrect working directory**: set `INTERPEER_PROJECT_ROOT` so adapters can locate project files.
 - **No response**: increase retry limits (`INTERPEER_*_MAX_RETRIES`) or inspect `sendLoggingMessage` output from the MCP client.
-- **Custom adapters**: place a JSON config at `.taskmaster/interpeer.config.json` (or set `INTERPEER_CONFIG_PATH`) to override agent definitions or add new ones.
+- **Custom adapters**: place a JSON config at `.interpeer/interpeer.config.json` (or set `INTERPEER_CONFIG_PATH`) to override agent definitions or add new ones. Legacy installs that still store overrides in `.taskmaster/interpeer.config.json` continue to work but will log a migration warning.
 
-### Example `.taskmaster/interpeer.config.json`
+### Example `.interpeer/interpeer.config.json`
 
 ```json
 {

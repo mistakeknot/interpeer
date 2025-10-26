@@ -836,7 +836,9 @@ function ensureConfig(): InterpeerConfig {
 }
 
 function loadConfig(projectRoot: string): InterpeerConfig {
-  const configPath = process.env.INTERPEER_CONFIG_PATH?.trim() || '.taskmaster/interpeer.config.json';
+  const defaultRelativePath = '.interpeer/interpeer.config.json';
+  const legacyRelativePath = '.taskmaster/interpeer.config.json';
+  const configPath = process.env.INTERPEER_CONFIG_PATH?.trim() || defaultRelativePath;
   let fileOverrides: Partial<InterpeerConfig> | null = null;
 
   const fullConfigPath = resolve(projectRoot, configPath);
@@ -845,7 +847,27 @@ function loadConfig(projectRoot: string): InterpeerConfig {
     const fileContents = readFileSync(fullConfigPath, 'utf8');
     fileOverrides = JSON.parse(fileContents) as Partial<InterpeerConfig>;
   } catch (error) {
-    if (process.env.INTERPEER_CONFIG_PATH) {
+    let attemptedLegacy = false;
+    if (!process.env.INTERPEER_CONFIG_PATH) {
+      const legacyPath = resolve(projectRoot, legacyRelativePath);
+      try {
+        accessSync(legacyPath, constants.F_OK);
+        const legacyContents = readFileSync(legacyPath, 'utf8');
+        fileOverrides = JSON.parse(legacyContents) as Partial<InterpeerConfig>;
+        attemptedLegacy = true;
+        console.warn(
+          `Loaded interpeer config from legacy location ${legacyPath}. ` +
+            'Consider migrating to .interpeer/interpeer.config.json or set INTERPEER_CONFIG_PATH.'
+        );
+      } catch (legacyError) {
+        // ignore, fall through to optional warning below
+        if (legacyError) {
+          attemptedLegacy = true;
+        }
+      }
+    }
+
+    if (process.env.INTERPEER_CONFIG_PATH || (!fileOverrides && !attemptedLegacy)) {
       const message = error instanceof Error ? error.message : String(error);
       console.warn(`Failed to load interpeer config file at ${fullConfigPath}: ${message}`);
     }
