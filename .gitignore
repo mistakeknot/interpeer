@@ -15,6 +15,17 @@ node_modules/
 # Editor directories and files
 .idea
 .vscode
+.claude/
+.claude-plugin/
+.clinerules/
+.cursor/
+.gemini/
+.kilo/
+.kiro/
+.roo/
+.trae/
+.windsurf/
+.zed/
 *.suo
 *.ntvs*
 *.njsproj
