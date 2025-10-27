@@ -88,7 +88,7 @@ After installation, Claude Code will automatically load the interpeer skill.
 
 Once installed, Claude will automatically use the interpeer skill when appropriate. You can also explicitly request it:
 
-**Quick Start:** For command-line usage with constraints and examples, see the [Quick Start](skills/interpeer/SKILL.md#quick-start) and [Quick Reference](skills/interpeer/SKILL.md#quick-reference) sections in SKILL.md.
+**For detailed workflow and examples,** see [SKILL.md](skills/interpeer/SKILL.md).
 
 ### Example: Design Document Review
 
@@ -137,11 +137,13 @@ Claude will:
 
 ## Review Workflow
 
-1. **Prepare**: Identify what needs review, then Claude asks you to select focus areas (Architecture, Performance, Security, etc.) via an interactive picker
-2. **Execute**: Send content to Codex CLI with appropriate prompts and constraints
-3. **Present**: Organize feedback by priority and category
-4. **Discuss**: Collaboratively analyze each point
-5. **Action**: Decide what to implement, defer, or reject
+1. **Identify**: Determine what to review (file, code, concept)
+2. **Execute**: Claude runs `codex exec` with your content and focus areas
+3. **Present**: Claude organizes Codex's feedback by priority and category
+4. **Discuss**: Collaboratively analyze each point, adding context
+5. **Decide**: Choose what to implement, defer, or reject (together)
+
+**Simple and straightforward** - no complex setup or configuration needed.
 
 ## Review Categories
 
