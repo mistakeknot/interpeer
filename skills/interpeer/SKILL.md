@@ -153,7 +153,97 @@ Determine what needs review:
 
 ### Phase 1.5: Detect Timeout Preference
 
-**Scan user request for timeout hints:**
+**Scan user request for timeout hints and determine duration.**
+
+**Algorithm for timeout detection:**
+
+```python
+# Pseudocode for Claude Code agents
+def detect_timeout(user_request: str) -> int:
+    """
+    Parse user request and return timeout in seconds.
+    Default: 90 seconds
+    """
+    request_lower = user_request.lower()
+
+    # Priority 1: Explicit time specification (e.g., "take 5 minutes", "30 seconds")
+    # Look for patterns like: "N minute(s)", "N min", "N second(s)", "N sec"
+    time_match = re.search(r'(\d+)\s*(minute|min|second|sec)', request_lower)
+    if time_match:
+        value = int(time_match.group(1))
+        unit = time_match.group(2)
+        if 'min' in unit:
+            return value * 60
+        else:  # seconds
+            return value
+
+    # Priority 2: Speed modifiers
+    # Quick/fast/brief = shorter timeout
+    if any(word in request_lower for word in ['quick', 'fast', 'brief']):
+        return 60
+
+    # Deep/extensive = longest timeout
+    if any(word in request_lower for word in ['deep', 'extensive']):
+        return 300
+
+    # Thorough/comprehensive/detailed = longer timeout
+    if any(word in request_lower for word in ['thorough', 'comprehensive', 'detailed']):
+        return 180
+
+    # Priority 3: Multi-file adjustment
+    # If reviewing multiple files, default to longer timeout
+    file_count = request_lower.count('.ts') + request_lower.count('.js') + \
+                 request_lower.count('.py') + request_lower.count('.md') + \
+                 request_lower.count('file')
+    if file_count > 2:
+        return 180  # Multi-file default
+
+    # Default: Standard timeout
+    return 90
+
+# Example usage:
+# "quick interpeer on auth.ts" → 60s
+# "interpeer the design doc" → 90s
+# "thorough review of api.ts" → 180s
+# "deep interpeer on the architecture" → 300s
+# "take 2 minutes to review this" → 120s
+# "review auth.ts, api.ts, handler.ts" → 180s (multi-file)
+```
+
+**For bash-based implementations:**
+
+```bash
+# Bash implementation for manual users
+detect_timeout() {
+    local user_request="$1"
+    local timeout=90  # default
+
+    # Convert to lowercase for matching
+    local request_lower=$(echo "$user_request" | tr '[:upper:]' '[:lower:]')
+
+    # Check for explicit time specification
+    if [[ "$request_lower" =~ ([0-9]+)[[:space:]]*(minute|min) ]]; then
+        timeout=$((${BASH_REMATCH[1]} * 60))
+    elif [[ "$request_lower" =~ ([0-9]+)[[:space:]]*(second|sec) ]]; then
+        timeout=${BASH_REMATCH[1]}
+
+    # Check for speed modifiers
+    elif [[ "$request_lower" =~ (quick|fast|brief) ]]; then
+        timeout=60
+    elif [[ "$request_lower" =~ (deep|extensive) ]]; then
+        timeout=300
+    elif [[ "$request_lower" =~ (thorough|comprehensive|detailed) ]]; then
+        timeout=180
+    fi
+
+    echo "$timeout"
+}
+
+# Usage:
+# timeout_seconds=$(detect_timeout "quick interpeer on auth.ts")
+```
+
+**Quick reference table:**
 
 | Pattern | Timeout | Examples |
 |---------|---------|----------|
@@ -161,9 +251,143 @@ Determine what needs review:
 | (no modifier) | 90s | "interpeer", "get codex feedback" |
 | thorough/comprehensive/detailed | 180s | "thorough interpeer", "detailed review" |
 | deep/extensive | 300s | "deep interpeer", "extensive analysis" |
-| "N minute(s)" or "N second(s)" | Parse | "2 minute interpeer", "take 5 minutes" |
+| "N minute(s)" or "N min" | N × 60 | "2 minute interpeer", "take 5 min" |
+| "N second(s)" or "N sec" | N | "take 30 seconds", "120 sec review" |
+| Multiple files (>2) | 180s | "review auth.ts, api.ts, handler.ts" |
 
 **Store detected timeout for use in Phase 2.**
+
+**Why this matters:**
+- Consistent behavior across different Claude Code sessions
+- Users get predictable results from timeout hints
+- Automatic adjustment for multi-file reviews
+- Explicit time specifications always take priority
+
+### Phase 1.6: Verify Codex CLI Availability
+
+**Pre-flight check before calling Codex:**
+
+Before launching a review, verify that Codex CLI is installed and accessible:
+
+```bash
+# Check if codex command exists
+if ! command -v codex >/dev/null 2>&1; then
+    # Present error to user with clear next steps
+    echo "ERROR: Codex CLI not found"
+    # Inform user to install from: https://github.com/openai/codex-cli
+    # Exit workflow early
+fi
+```
+
+**For Claude Code agents:** If `codex` is not found, present this message to the user:
+
+```markdown
+❌ **Codex CLI Not Installed**
+
+The `codex` command was not found on your system. To use interpeer, you need to install OpenAI's Codex CLI.
+
+**Installation:**
+1. Visit: https://github.com/openai/codex-cli
+2. Follow the installation instructions for your platform
+3. Verify installation: `codex --version`
+4. Configure API key: `codex config set api_key YOUR_KEY`
+
+Once installed, try your interpeer request again.
+```
+
+**This check prevents:**
+- Silent hangs waiting for output that will never come
+- Confusing error messages from missing commands
+- Wasted time polling a non-existent process
+
+**When to skip this check:**
+- You've already verified `codex` is available in this session
+- The user has successfully run interpeer before in the same session
+
+### Phase 1.7: Handle Codex CLI Failures
+
+**After calling Codex, check for failures:**
+
+Even when `codex` exists, calls can fail due to:
+- API authentication errors
+- Network connectivity issues
+- Invalid file paths
+- Codex CLI bugs or crashes
+
+**For Claude Code agents using background execution:**
+
+When checking results with `BashOutput`, examine both stdout and stderr:
+
+```
+If process completed:
+  - Check exit code (if available)
+  - If exit code != 0 OR stderr contains error messages:
+    → Parse common error patterns
+    → Present appropriate recovery steps
+    → Ask user if they want to retry
+```
+
+**Common error patterns and recovery:**
+
+| Error Pattern | Likely Cause | Recovery Steps |
+|--------------|--------------|----------------|
+| "authentication failed", "invalid api key" | API key not configured | Guide user to run `codex config set api_key YOUR_KEY` |
+| "network error", "connection refused" | Network/internet issue | Suggest checking internet connection, retry in a moment |
+| "file not found", "no such file" | Invalid file path | Verify file path, check working directory |
+| "timeout", "deadline exceeded" (in stderr) | Codex internal timeout | Suggest narrower scope or "quick interpeer" for faster review |
+| Empty output + exit code 0 | Codex returned nothing | Possible bug; suggest retrying with different file/scope |
+| "rate limit", "quota exceeded" | API rate limiting | Inform user to wait a moment, try again later |
+
+**Error presentation template:**
+
+```markdown
+⚠️ **Codex CLI Error**
+
+The Codex CLI command failed with the following error:
+
+```
+[stderr output]
+```
+
+**Likely cause:** [interpretation based on error pattern]
+
+**Suggested fix:**
+1. [Specific recovery step 1]
+2. [Specific recovery step 2]
+
+Would you like me to:
+- Retry with adjusted parameters
+- Try a different approach
+- Skip the interpeer review for now
+```
+
+**Example recovery flow:**
+
+```
+User: "interpeer the auth handler"
+
+Claude:
+1. Verify codex exists ✓
+2. Launch: codex exec --sandbox read-only "Review src/auth/handler.ts..."
+3. Poll for results
+4. BashOutput shows: stderr = "Error: authentication failed. Run 'codex config set api_key YOUR_KEY'"
+
+Claude presents:
+"⚠️ Codex CLI authentication failed. You need to configure your API key:
+
+ Run: codex config set api_key YOUR_OPENAI_KEY
+
+ Get your key from: https://platform.openai.com/api-keys
+
+ Once configured, I can retry the review."
+```
+
+**Key principles:**
+- Always surface errors clearly - don't hide them or present empty results
+- Parse stderr for common patterns to provide specific guidance
+- Offer retry options when appropriate
+- Guide users to fix configuration issues
+- Never silently fail or present partial results as complete without context
 
 ### Phase 2: Call Codex CLI
 

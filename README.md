@@ -6,6 +6,37 @@ Get expert feedback from OpenAI Codex CLI on designs, implementations, or approa
 
 The Interpeer plugin provides a "second pair of eyes" by integrating OpenAI's Codex CLI into Claude Code's workflow. It enables collaborative peer review where Claude gets expert feedback from Codex and then discusses that feedback with you to make informed decisions.
 
+**Core workflow:** Claude → Codex → Discuss → Decide (together)
+
+## Quick Start
+
+**Get your first review in 2 minutes:**
+
+1. **Install Codex CLI** (if not already installed):
+   ```bash
+   npm install -g @openai/codex-cli
+   codex config set api-key YOUR_API_KEY
+   ```
+
+2. **Install the plugin** in Claude Code:
+   ```bash
+   /plugin marketplace add mistakeknot/interagency-marketplace
+   /plugin install interpeer
+   ```
+
+3. **Use it**:
+   ```
+   You: "Can you get Codex feedback on this design doc?"
+   ```
+
+   Claude will:
+   - Send your content to Codex for expert review
+   - Present organized feedback (strengths, concerns, recommendations)
+   - Discuss each point with you
+   - Help you decide what to implement
+
+**That's it!** You're ready to get cross-AI peer reviews.
+
 ## Features
 
 - **Design Document Review**: Validate technical designs before implementation
@@ -52,69 +83,6 @@ Once prerequisites are met, install the plugin:
 ```
 
 After installation, Claude Code will automatically load the interpeer skill.
-
-### (Optional) Install the Interpeer MCP Server for Reverse Reviews
-
-To let Codex (or other agents) ask **Claude** for a second opinion, install the local MCP server included in this repo:
-
-```bash
-# From the repo root
-cd tools/interpeer-mcp
-
-# Install dependencies and build
-pnpm install
-pnpm run build
-
-# Ensure the CLI entrypoint is executable
-chmod +x dist/bin/interpeer-mcp.js
-
-# (Optional) run tests
-pnpm run test
-
-# (Optional) create a distributable tarball
-pnpm pack
-```
-
-The CLI can be launched manually (use `--default-agent` / `--default-model` flags to set defaults):
-
-```bash
-INTERPEER_PROJECT_ROOT=/path/to/interpeer \
-  node /path/to/interpeer/tools/interpeer-mcp/dist/bin/interpeer-mcp.js \
-  --default-agent codex_cli \
-  --default-model gpt-5-codex
-```
-
-Codex, Factory CLI droids, or any MCP-capable client can register this binary. See [docs/interpeer-mcp.md](docs/interpeer-mcp.md) for detailed integration instructions (Codex CLI, Factory CLI, MCP Inspector), environment variables, caching, and troubleshooting.
-
-To customize agents/models, create `.interpeer/interpeer.config.json` in your project (or set `INTERPEER_CONFIG_PATH`) and define additional adapters or override defaults. Environment variables always win if both are provided. (Legacy installs that used `.taskmaster/interpeer.config.json` are still loaded automatically but will emit a migration warning.)
-
-You can also manage defaults from the command line:
-
-```bash
-# Ensure the CLI is built (once per change)
-pnpm --filter interpeer-mcp run build
-
-# Show CLI help/usage (local checkout)
-node tools/interpeer-mcp/dist/bin/interpeer-cli.js help
-
-# Launch the MCP server with sensible defaults
-node tools/interpeer-mcp/dist/bin/interpeer-cli.js mcp serve --project-root "$(pwd)"
-
-# Generate a Codex MCP config snippet to copy into ~/.codex/mcp.json
-node tools/interpeer-mcp/dist/bin/interpeer-cli.js mcp config codex --project-root "$(pwd)"
-
-# Manage defaults and adapters through the wrapper
-node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents list
-node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents set-default --agent claude_code --model claude-4.5-sonnet
-node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents set-default --model ""
-node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents set-agent --id claude --command claude --model claude-4.5-sonnet
-node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents add-agent --id openrouter --command or --model anthropic/claude-4.5-sonnet
-
-# Once published to npm: install globally or run via npx
-# npm install -g interpeer-mcp
-# interpeer help
-# interpeer mcp config codex --project-root /path/to/project
-```
 
 ## Usage
 
@@ -247,6 +215,88 @@ practices but raised concerns about session management scalability.
 - [ ] Evaluate Redis for session management
 - [ ] Design token rotation strategy
 ```
+
+## Advanced Topics
+
+### Reverse Reviews: Interpeer MCP Server
+
+The default workflow is **Claude → Codex** (Claude asks Codex for feedback). For the reverse flow—**Codex → Claude** (Codex asks Claude for feedback)—you can optionally install the Interpeer MCP server.
+
+**When you might want this:**
+- You're using Codex CLI as your primary agent and want Claude's perspective
+- You want multiple AI opinions on the same code/design
+- You're comparing different AI models' feedback styles
+
+**This is completely optional.** The core interpeer plugin works without it.
+
+#### Installation
+
+From the repo root:
+
+```bash
+cd tools/interpeer-mcp
+
+# Install dependencies and build
+pnpm install
+pnpm run build
+
+# Make CLI executable
+chmod +x dist/bin/interpeer-mcp.js
+
+# (Optional) run tests
+pnpm run test
+```
+
+#### Configuration
+
+The MCP server can be launched manually:
+
+```bash
+INTERPEER_PROJECT_ROOT=/path/to/interpeer \
+  node /path/to/interpeer/tools/interpeer-mcp/dist/bin/interpeer-mcp.js \
+  --default-agent codex_cli \
+  --default-model gpt-5-codex
+```
+
+Or use the CLI helper for common tasks:
+
+```bash
+# Show help
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js help
+
+# Launch MCP server
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js mcp serve --project-root "$(pwd)"
+
+# Generate Codex config snippet
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js mcp config codex --project-root "$(pwd)"
+
+# Manage agents
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents list
+node tools/interpeer-mcp/dist/bin/interpeer-cli.js agents set-default --agent claude_code
+```
+
+For detailed integration instructions with Codex CLI, Factory CLI, or MCP Inspector, see [docs/interpeer-mcp.md](docs/interpeer-mcp.md).
+
+#### Customization
+
+Create `.interpeer/interpeer.config.json` in your project to customize agents/models:
+
+```json
+{
+  "agents": {
+    "claude_code": {
+      "command": "claude",
+      "defaultModel": "claude-4.5-sonnet"
+    },
+    "custom_agent": {
+      "command": "your-cli",
+      "defaultModel": "your-model"
+    }
+  }
+}
+```
+
+Environment variables take precedence over config file settings.
 
 ## Troubleshooting
 
