@@ -2,9 +2,23 @@
   "name": "interpeer",
   "version": "0.1.0",
   "description": "Cross-AI peer review — quick (Claude↔Codex), deep (Oracle), council (multi-model), mine (disagreement extraction).",
-  "author": { "name": "MK", "email": "mistakeknot@vibeguider.org" },
+  "author": {
+    "name": "MK",
+    "email": "mistakeknot@vibeguider.org"
+  },
   "repository": "https://github.com/mistakeknot/interpeer",
   "license": "MIT",
-  "keywords": ["cross-ai", "peer-review", "oracle", "multi-model", "council"],
-  "skills": ["./skills/interpeer"]
+  "keywords": [
+    "cross-ai",
+    "peer-review",
+    "oracle",
+    "multi-model",
+    "council"
+  ],
+  "skills": [
+    "./skills/interpeer"
+  ],
+  "commands": [
+    "./commands/interpeer.md"
+  ]
 }
