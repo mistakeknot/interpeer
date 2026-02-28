@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local workspace artifacts
+.claude/
+.beads/
+
+# OS
+.DS_Store
+
+# Editor/IDE
+.idea/
+.vscode/
+*.sw?
