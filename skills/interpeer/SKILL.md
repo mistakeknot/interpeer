@@ -1,6 +1,6 @@
 ---
-name: interpeer
-description: Model-diversity layer — the canonical path for non-Claude perspectives. Quick (Claude↔Codex, seconds), deep (Oracle/GPT via API or browser, minutes), mine (disagreement extraction into tests/specs). Auto-detects host agent.
+name: interpeer-engine
+description: Use when invoked from /interpeer command — runs the model-diversity layer (Claude↔Codex quick mode, Oracle deep mode, disagreement-mining). Auto-detects host agent. Internal engine; users invoke via the slash command.
 ---
 
 # interpeer: Model-Diversity Layer

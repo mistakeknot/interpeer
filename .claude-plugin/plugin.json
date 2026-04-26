@@ -1,6 +1,6 @@
 {
   "name": "interpeer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Cross-AI peer review — quick (Claude↔Codex), deep (Oracle), council (multi-model), mine (disagreement extraction).",
   "author": {
     "name": "MK",

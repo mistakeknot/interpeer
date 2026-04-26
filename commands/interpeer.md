@@ -16,11 +16,11 @@ Get a quick second opinion from the other AI.
 
 ## Execution
 
-Load the `interpeer` skill and follow its workflow.
+Load the `interpeer-engine` skill and follow its workflow.
 
 ## Escalation
 
-If the user wants deeper review, switch modes within `interpeer`:
+If the user wants deeper review, switch modes within `interpeer-engine`:
 - **"go deeper"** or **"use Oracle"** → Switch to `deep` mode
 - **"get consensus"** or **"council"** → Switch to `council` mode
 - **"what do they disagree on?"** → Switch to `mine` mode
