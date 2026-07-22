@@ -1,0 +1,20 @@
+{
+  "name": "interpeer",
+  "version": "0.1.1",
+  "description": "Cross-AI peer review — quick (Claude↔Codex), deep (Oracle), council (multi-model), mine (disagreement extraction).",
+  "license": "MIT",
+  "keywords": [
+    "cross-ai",
+    "peer-review",
+    "oracle",
+    "multi-model",
+    "council"
+  ],
+  "author": "MK",
+  "interface": {
+    "displayName": "interpeer",
+    "shortDescription": "Cross-AI peer review — quick (Claude↔Codex), deep (Oracle), council (multi-model), mine (disagreement extraction)."
+  },
+  "skills": "./skills/",
+  "commands": "./commands/"
+}
