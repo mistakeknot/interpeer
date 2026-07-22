@@ -1,6 +1,6 @@
 # interpeer
 
-Cross-AI peer review for Claude Code.
+Cross-AI peer review for Claude Code, Codex, and Kimi Code.
 
 ## What this does
 
