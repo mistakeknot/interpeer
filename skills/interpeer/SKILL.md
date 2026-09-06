@@ -5,6 +5,16 @@ description: Use when invoked from /interpeer command — runs the model-diversi
 
 # interpeer: Model-Diversity Layer
 
+In Codex, resolve this `SKILL.md` symlink before reading `references/`. Plugin
+scripts live two directories above the skill directory. For enrolled Clavain
+work, select the canonical installed Clavain dispatcher by resolving
+`~/.agents/skills/clavain`, then use its sibling `scripts/dispatch.sh` with the
+explicit `validation` role and actual producer identity. Verify the selected
+backend/model before sending the prompt. The quick-mode invocation below uses
+that same role policy. Missing required review remains a gate;
+neither the first cached dispatcher nor an arbitrary available model is a valid
+substitute.
+
 interpeer is the canonical path for getting non-Claude perspectives across the Demarch stack. When quality gates produce P0/P1 findings on security-sensitive code, they suggest escalating to interpeer. When flux-drive agents disagree, interpeer provides an outside opinion. When you want a genuinely different model's perspective, interpeer is the tool.
 
 ## Modes
@@ -75,29 +85,32 @@ Review the following code. Focus on:
 
 **Phase 2: Call Peer**
 
-From Claude Code → Codex (via dispatch.sh):
+Resolve the installed Clavain checkout and prepare the actual producer identity:
 ```bash
-DISPATCH=$(find ~/.claude/plugins/cache -path '*/interpeer/*/scripts/dispatch.sh' 2>/dev/null | head -1)
-[ -z "$DISPATCH" ] && DISPATCH=$(find ~/.claude/plugins/cache -path '*/clavain/*/scripts/dispatch.sh' 2>/dev/null | head -1)
-[ -z "$DISPATCH" ] && DISPATCH=$(find ~/projects/interpeer -name dispatch.sh -path '*/scripts/*' 2>/dev/null | head -1)
-[ -z "$DISPATCH" ] && DISPATCH=$(find ~/projects/Clavain -name dispatch.sh -path '*/scripts/*' 2>/dev/null | head -1)
-
-bash "$DISPATCH" \
-  --tier fast \
-  -s read-only \
-  -o /tmp/interpeer-response.md \
-  -C "$PROJECT_DIR" \
+CLAVAIN_ROOT="$(python3 -c 'from pathlib import Path; print((Path.home()/".agents/skills/clavain").resolve(strict=True).parent)')"
+REVIEW_ARGS=(
+  --producer-identity "${PRODUCER_IDENTITY:?Set the actual producer backend/model}"
+  --validator-relationship independent
+  -C "$PROJECT_DIR"
   --prompt-file /tmp/interpeer-prompt.md
+  -o /tmp/interpeer-response.md
+)
+bash "$CLAVAIN_ROOT/scripts/dispatch.sh" --role validation --dry-run "${REVIEW_ARGS[@]}"
 ```
 
-From Codex CLI → Claude:
+Inspect the resolved backend/model against the task's review policy before
+sending the prompt. Missing Clavain or a mismatched identity leaves required
+review pending. For enrolled work, retain the enrollment through the helper:
 ```bash
-claude -p "$(cat /tmp/interpeer-prompt.md)" \
-  --allowedTools "Read,Grep,Glob,LS" \
-  --add-dir . \
-  --permission-mode dontAsk \
-  --print \
-  > /tmp/interpeer-response.md
+python3 "$CLAVAIN_ROOT/scripts/task-delivery.py" \
+  --db "${TASK_DB:?Set the authoritative Intercore database}" \
+  dispatch --enrollment-id "${ENROLLMENT_ID:?Set the existing enrollment}" \
+  --role validation -- "${REVIEW_ARGS[@]}"
+```
+
+For work without an enrollment, invoke the same checked route directly:
+```bash
+bash "$CLAVAIN_ROOT/scripts/dispatch.sh" --role validation "${REVIEW_ARGS[@]}"
 ```
 
 **Phase 3: Present**
@@ -126,6 +139,10 @@ claude -p "$(cat /tmp/interpeer-prompt.md)" \
 **DON'T include:** Large codebases, node_modules, secrets.
 
 ### Error Handling
+
+For required or enrolled reviews, preserve the task's reviewer and model policy.
+An unavailable reviewer leaves the review pending; Oracle or self-review cannot
+stand in for it. The following options apply only when that policy permits them.
 
 1. **Retry** — transient errors are common
 2. **Check install** — `which codex && codex login status` or `which claude`

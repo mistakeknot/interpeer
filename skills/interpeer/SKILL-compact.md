@@ -19,9 +19,18 @@ Default: `quick`. Escalation: "go deeper" -> deep, "council" -> council, "extrac
 
 ## Quick Mode
 
+For enrolled Clavain work, resolve `~/.agents/skills/clavain` to select the
+canonical Clavain checkout and its `scripts/dispatch.sh`. Use the explicit
+`--role validation` and `--producer-identity` with the actual backend/model, and
+verify the effective backend/model using `--dry-run` before sending the prompt.
+For enrolled work, invoke `scripts/task-delivery.py --db <authoritative-db>
+dispatch --enrollment-id <existing-id> --role validation -- <review-arguments>`
+to preserve the binding. Missing required
+review remains a gate, with no cached-dispatcher or arbitrary-model substitution.
+
 1. Detect host agent (CLAUDECODE=1 or CODEX_SANDBOX env var)
 2. Read 1-5 files, build review prompt with project context
-3. Call peer via dispatch.sh (Claude->Codex) or claude -p (Codex->Claude)
+3. Invoke the checked validation route; the full skill provides exact shell commands
 4. Present: peer feedback + your own analysis + recommended actions
 
 ## Deep Mode
