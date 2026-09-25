@@ -62,7 +62,7 @@ CODEX_SANDBOX=seatbelt
 **Phase 1: Detect & Prepare**
 
 1. Detect host agent using environment variables
-2. Read the files the user wants reviewed (1-5 files, keep focused)
+2. Read the files the user wants reviewed (1-5 files, keep focused). If the target is inline text or a description rather than paths on disk, include that text verbatim as the review subject instead
 3. Build a review prompt:
 
 ```markdown
